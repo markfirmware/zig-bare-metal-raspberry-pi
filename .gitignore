@@ -1,0 +1,6 @@
+*.bin
+*.dat
+*.elf
+*.img
+*.zip
+zig-cache/
