@@ -14,4 +14,4 @@
 * connect the pi to the tv using the hdmi cable
 * turn on the tv
 * apply power to the pi
-* you should see the zig logo displayed along a changing banner of colored lines
+* you should see the zig logo displayed along with a changing banner of colored lines

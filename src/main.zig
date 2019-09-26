@@ -1,26 +1,62 @@
+export fn kernelMain2() noreturn {
+    asm volatile(
+        \\ mov r1,#0x20000000
+        \\ orr r1,#0x00200000
+        \\ mov r0,#0x10
+        \\ str r0,[r1,#0x28]
+        \\loop:
+        \\ b loop
+        \\ mov r0,#0x10
+        \\ str r0,[r1,#0x1c]
+        \\ bl delay
+        \\ mov r0,#0x10
+        \\ str r0,[r1,#0x28]
+        \\ bl delay
+        \\ b loop
+        \\
+        \\delay:
+        \\ mov r1,#1024
+        \\delay_x:
+        \\ mov r0,#1024
+        \\delay_0:
+        \\ mov r0,r0
+        \\ subs r0,#1
+        \\ bne delay_0
+        \\ subs r1,#1
+        \\ bne delay_x
+        \\ bx lr
+    );
+    while (true) {
+    }
+}
+
 export fn kernelMain() noreturn {
     // set exception stacks
     asm volatile(
         \\ cps #0x17 // enter data abort mode
         \\ mov r0,#0x08000000
-        \\ sub r0,0x10000
+        \\ sub r0,0x100000
         \\ mov sp,r0
         \\
         \\ cps #0x1b // enter undefined instruction mode
         \\ mov r0,#0x08000000
-        \\ sub r0,0x20000
+        \\ sub r0,0x200000
         \\ mov sp,r0
         \\
         \\ cps #0x1f // back to system mode
     );
-    arm.setVectorBaseAddressRegister(0x1000);
+
+    arm.setVectorBaseAddressRegister(if (build_options.is_qemu) 0x11000 else 0x1000);
     arm.setBssToZero();
 
     serial.init();
-    serial.log("\n{} {} ...", name, release_tag);
+
+    log("\x1b[H\x1b[J\x1b[4;200r");
+    log("\n{} {} ...", name, release_tag);
+//  log("numeric {}", arm.cpsr());
 
     fb.init();
-    serial.log("drawing logo ...");
+    log("drawing logo ...");
     var logo: Bitmap = undefined;
     var logo_bmp_file align(@alignOf(u32)) = @embedFile("../assets/zig-logo.bmp");
     logo.init(&fb, &logo_bmp_file);
@@ -35,15 +71,6 @@ export fn kernelMain() noreturn {
     }
 }
 
-fn hex(message :[] const u8, x: u32) void {
-    var buf: [8]u8 = undefined;
-    for (buf) |_, i| {
-        const digit: u8 = @intCast(u8, (x >> @intCast(u5, (buf.len - 1 - i) * 4)) & 0xF);
-        buf[i] = if (digit < 9) digit + '0' else digit - 10 + 'A';
-    }
-    serial.log("0x{} {}", buf, message);
-}
-
 const ScreenActivity = struct {
     width: u32,
     height: u32,
@@ -52,6 +79,8 @@ const ScreenActivity = struct {
     top: u32,
     x: u32,
     y: u32,
+    frame_count: u32,
+    last_seconds: u32,
 
     fn init(self: *ScreenActivity, width: u32, height: u32) void {
         self.width = width;
@@ -61,9 +90,21 @@ const ScreenActivity = struct {
         self.top = height + margin;
         self.x = 0;
         self.y = self.top;
+        self.frame_count = 0;
+        self.last_seconds = arm.seconds();
     }
 
     fn update (self: *ScreenActivity) void {
+        const new_seconds = arm.seconds();
+        if (new_seconds >= self.last_seconds + 1) {
+            self.last_seconds = new_seconds;
+            serial.writeText("\x1b7\x1b[H");
+            serial.decimal(self.last_seconds);
+            serial.writeText(" seconds ");
+            serial.decimal(self.frame_count);
+            serial.writeText(" frames");
+            serial.writeText("\x1b8");
+        }
         fb.drawPixel32(self.x, self.y, self.color32);
         self.x += 1;
         if (self.x == self.width) {
@@ -71,6 +112,7 @@ const ScreenActivity = struct {
             self.y += 1;
             if (self.y == self.top + self.height) {
                 self.y = self.top;
+                self.frame_count += 1;
             }
             const delta = 10;
             self.color.red = self.color.red +% delta;
@@ -87,17 +129,18 @@ const ScreenActivity = struct {
 
 const SerialActivity = struct {
     fn init(self: *SerialActivity) void {
-        serial.log("now echoing input on uart1 ...");
+        log("now echoing serial input - press ! to invoke numeric formatting exception");
     }
 
     fn update(self: *SerialActivity) void {
         if (!serial.isReadByteReady()) {
             return;
         }
-        const byte = serial.readByte();
+        const byte = serial.readByteBlocking();
         switch (byte) {
             '!' => {
-                var x = @intToPtr(*u32, 2).*;
+                const x: u32 = 0;
+                log("invoke numeric formatting exception ... {}", x);
             },
             '\r' => {
                 serial.writeText("\n");
@@ -133,64 +176,70 @@ comptime {
         \\ cps #0x1f // enter system mode
         \\ mov sp,#0x08000000
         \\ bl kernelMain
-    );
-
-    asm(
-        \\.section .text.exception_vector_table_at_0x1000
+        \\
+        \\.section .text.exception_vector_table_section
         \\.balign 0x80
         \\exception_vector_table:
         \\ b exceptionEntry0x00
-        \\ b exceptionEntry0x01
-        \\ b exceptionEntry0x02
-        \\ b exceptionEntry0x03
         \\ b exceptionEntry0x04
-        \\ b exceptionEntry0x05
-        \\ b exceptionEntry0x06
-        \\ b exceptionEntry0x07
+        \\ b exceptionEntry0x08
+        \\ b exceptionEntry0x0c
+        \\ b exceptionEntry0x10
+        \\ b exceptionEntry0x14
+        \\ b exceptionEntry0x18
+        \\ b exceptionEntry0x1c
     );
 }
 
 export fn exceptionEntry0x00() noreturn {
-    exceptionHandler(0x00);
-}
-
-export fn exceptionEntry0x01() noreturn {
-    exceptionHandler(0x01);
-}
-
-export fn exceptionEntry0x02() noreturn {
-    exceptionHandler(0x02);
-}
-
-export fn exceptionEntry0x03() noreturn {
-    exceptionHandler(0x03);
+    exceptionHandler(arm.lr(), 0x00);
 }
 
 export fn exceptionEntry0x04() noreturn {
-    exceptionHandler(0x04);
+    exceptionHandler(arm.lr(), 0x04);
 }
 
-export fn exceptionEntry0x05() noreturn {
-    exceptionHandler(0x05);
+export fn exceptionEntry0x08() noreturn {
+    exceptionHandler(arm.lr(), 0x08);
 }
 
-export fn exceptionEntry0x06() noreturn {
-    exceptionHandler(0x06);
+export fn exceptionEntry0x0c() noreturn {
+    exceptionHandler(arm.lr(), 0x0c);
 }
 
-export fn exceptionEntry0x07() noreturn {
-    exceptionHandler(0x07);
+export fn exceptionEntry0x10() noreturn {
+    exceptionHandler(arm.lr(), 0x10);
 }
 
-fn exceptionHandler(entry: u32) noreturn {
-    serial.log("arm exception taken");
-    hex("vector", entry);
-    hex("spsr", arm.spsr());
-    hex("cpsr", arm.cpsr());
-    hex("scr", arm.scr());
-    hex("sp", arm.sp());
-    hex("sctlr", arm.sctlr());
-    arm.hang("execution is now stopped in arm exception handler");
+export fn exceptionEntry0x14() noreturn {
+    exceptionHandler(arm.lr(), 0x14);
+}
+
+export fn exceptionEntry0x18() noreturn {
+    exceptionHandler(arm.lr(), 0x18);
+}
+
+export fn exceptionEntry0x1c() noreturn {
+    exceptionHandler(arm.lr(), 0x1c);
+}
+
+var exception_active: bool = false;
+
+fn exceptionHandler(lr: u32, entry: u32) noreturn {
+    if (exception_active) {
+        panicf("exceptionHandler already handling exception");
+    } else {
+        exception_active = true;
+        log("");
+        log("arm exception taken");
+        hex("vector offset", entry);
+        hex("spsr", arm.spsr());
+        hex("cpsr", arm.cpsr());
+        hex("lr", lr);
+        hex("sp", arm.sp());
+        hex("sctlr", arm.sctlr());
+        arm.hang("execution is now stopped in exceptionHandler()");
+    }
 }
 
 pub fn panic(message: []const u8, trace: ?*builtin.StackTrace) noreturn {
@@ -218,7 +267,8 @@ const builtin = @import("builtin");
 const Bitmap = @import("video_core_frame_buffer.zig").Bitmap;
 const Color = @import("video_core_frame_buffer.zig").Color;
 const FrameBuffer = @import("video_core_frame_buffer.zig").FrameBuffer;
-const gpio2 = @import("gpio2.zig");
+const hex = serial.hex;
+const log = serial.log;
 const panicf = arm.panicf;
 const serial = @import("serial.zig");
 const std = @import("std");

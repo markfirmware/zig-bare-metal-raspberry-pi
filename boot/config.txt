@@ -8,6 +8,7 @@ boot_delay=0
 cec_osd_name=Zig!
 
 [rpi0]
+gpio=3=op,dh,pn
 kernel=zig-bare-metal-raspberry-pi-armv6.img
 [rpi1]
 kernel=zig-bare-metal-raspberry-pi-armv6.img

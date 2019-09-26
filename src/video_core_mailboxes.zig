@@ -10,15 +10,6 @@ const MailboxRegisters = packed struct {
     status_register: u32,
     unused6: u32,
 
-    fn init(index: u32) *volatile MailboxRegisters {
-        assert(@sizeOf(MailboxRegisters) == 0x20);
-        if (index > 1) {
-            panicf("mailbox index {} exceeds 1", index);
-        }
-        const MAILBOXES_OFFSET = 0xB880;
-        return @intToPtr(*volatile MailboxRegisters, arm.PERIPHERAL_BASE + MAILBOXES_OFFSET + index * @sizeOf(MailboxRegisters));
-    }
-
     fn pushRequestBlocking(this: *volatile MailboxRegisters, request: u32) void {
         const MAILBOX_IS_FULL = 0x80000000;
         this.blockWhile(MAILBOX_IS_FULL);
@@ -33,6 +24,15 @@ const MailboxRegisters = packed struct {
         if (response != request) {
             panicf("buffer address and channel response was {x} expecting {x}", response, request);
         }
+    }
+
+    fn init(index: u32) *volatile MailboxRegisters {
+        assert(@sizeOf(MailboxRegisters) == 0x20);
+        if (index > 1) {
+            panicf("mailbox index {} exceeds 1", index);
+        }
+        const MAILBOXES_OFFSET = 0xB880;
+        return arm.io(MailboxRegisters, MAILBOXES_OFFSET + index * @sizeOf(MailboxRegisters));
     }
 
     fn blockWhile(this: *volatile MailboxRegisters, condition: u32) void {

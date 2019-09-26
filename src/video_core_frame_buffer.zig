@@ -6,8 +6,7 @@ pub const FrameBuffer = struct {
     physical_height: u32,
     pitch: u32,
     pixel_order: u32,
-    bytes: [*]u8,
-    words: [*]u32,
+    address: u32,
     size: u32,
     virtual_height: u32,
     virtual_width: u32,
@@ -17,7 +16,8 @@ pub const FrameBuffer = struct {
     overscan_bottom: u32,
     overscan_left: u32,
     overscan_right: u32,
-
+    words: [*]u32,
+    bytes: [*]u8,
     fn clear(fb: *FrameBuffer, color: Color) void {
         var y: u32 = 0;
         while (y < fb.virtual_height) : (y += 1) {
@@ -51,8 +51,8 @@ pub const FrameBuffer = struct {
     }
 
     pub fn init(fb: *FrameBuffer) void {
-        var width: u32 = 1920;
-        var height: u32 = 1080;
+        const width: u32 = 1920;
+        const height: u32 = 1080;
         fb.alignment = 256;
         fb.physical_width = width;
         fb.physical_height = height;
@@ -67,7 +67,7 @@ pub const FrameBuffer = struct {
         callVideoCoreProperties(&[_]PropertiesArg{
             tag(TAG_ALLOCATE_FRAME_BUFFER, 8),
             in(&fb.alignment),
-            out(@ptrCast(*u32, &fb.bytes)),
+            out(&fb.address),
             out(&fb.size),
             tag(TAG_SET_DEPTH, 4),
             set(&fb.depth),
@@ -91,14 +91,14 @@ pub const FrameBuffer = struct {
             out(&fb.overscan_bottom),
             out(&fb.overscan_left),
             out(&fb.overscan_right),
-            lastTagSentinel(),
         });
 
-        if (@ptrToInt(fb.bytes) == 0) {
-            panicf("frame buffer pointer is zero");
+        if (fb.address == 0) {
+            panicf("frame buffer address is zero");
         }
-        fb.bytes = @intToPtr([*]u8, @ptrToInt(fb.bytes) & 0x3FFFFFFF);
-        fb.words = @intToPtr([*]u32, @ptrToInt(fb.bytes));
+        fb.address &= 0x3FFFFFFF;
+        fb.bytes = @intToPtr([*]u8, fb.address);
+        fb.words = @intToPtr([*]u32, fb.address);
 //      log("fb align {} addr {x} alpha {} pitch {} order {} size {} physical {}x{} virtual {}x{} offset {},{} overscan t {} b {} l {} r {}", fb.alignment, @ptrToInt(fb.bytes), fb.alpha_mode, fb.pitch, fb.pixel_order, fb.size, fb.physical_width, fb.physical_height, fb.virtual_width, fb.virtual_height, fb.virtual_offset_x, fb.virtual_offset_y, fb.overscan_top, fb.overscan_bottom, fb.overscan_left, fb.overscan_right);
     }
 };
@@ -116,7 +116,26 @@ pub const Bitmap = struct {
     width: u32,
     height: u32,
 
-    fn getU32(base: [*]u8, offset: u32) u32 {
+    fn drawRect(self: *Bitmap, width: u32, height: u32, x1: u32, y1: u32, x2: u32, y2: u32) void {
+        var y: u32 = 0;
+        while( y < height) : (y += 1) {
+            var x: u32 = 0;
+            while (x < width) : (x += 1) {
+                var argb = getUnalignedU32(self.pixel_array, ((self.height - 1 - y + y1) * self.width + x + x1) * @sizeOf(u32));
+                argb = argb & 0xffffff | 0xff000000 - (argb & 0xff000000);
+                self.frame_buffer.drawPixel32(x + x2, y + y2, argb);
+            }
+        }
+    }
+
+    pub fn init(bitmap: *Bitmap, frame_buffer: *FrameBuffer, file: []u8) void {
+        bitmap.frame_buffer = frame_buffer;
+        bitmap.pixel_array = @intToPtr([*]u8, @ptrToInt(file.ptr) + getUnalignedU32(file.ptr, 0x0A));
+        bitmap.width = getUnalignedU32(file.ptr, 0x12);
+        bitmap.height = getUnalignedU32(file.ptr, 0x16);
+    }
+
+    fn getUnalignedU32(base: [*]u8, offset: u32) u32 {
         var word: u32 =0;
         var i: u32 = 0;
         while (i <= 3) : (i += 1) {
@@ -124,33 +143,6 @@ pub const Bitmap = struct {
             word |= @intCast(u32, @intToPtr(*u8, @ptrToInt(base) + offset + i).*) << 24;
         }
         return word;
-    }
-
-    pub fn init(bitmap: *Bitmap, frame_buffer: *FrameBuffer, file: []u8) void {
-        bitmap.frame_buffer = frame_buffer;
-        bitmap.pixel_array = @intToPtr([*]u8, @ptrToInt(file.ptr) + getU32(file.ptr, 0x0A));
-        bitmap.width = getU32(file.ptr, 0x12);
-        bitmap.height = getU32(file.ptr, 0x16);
-    }
-
-    fn getPixel(self: *Bitmap, x: u32, y: u32) Color {
-        const argb = getU32(self.pixel_array, ((self.height - 1 - y) * self.width + x) * @sizeOf(u32));
-        return Color{
-            .alpha = @intCast(u8, (argb >> 24) & 0xff),
-            .red = @intCast(u8, (argb >> 16) & 0xff),
-            .green = @intCast(u8, (argb >> 8) & 0xff),
-            .blue = @intCast(u8, (argb >> 0) & 0xff),
-        };
-    }
-
-    fn drawRect(self: *Bitmap, width: u32, height: u32, x1: u32, y1: u32, x2: u32, y2: u32) void {
-        var y: u32 = 0;
-        while( y < height) : (y += 1) {
-            var x: u32 = 0;
-            while (x < width) : (x += 1) {
-                self.frame_buffer.drawPixel(x + x2, y + y2, self.getPixel(x + x1, y + y1));
-            }
-        }
     }
 };
 

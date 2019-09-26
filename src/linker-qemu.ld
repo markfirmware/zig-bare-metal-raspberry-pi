@@ -1,11 +1,11 @@
 ENTRY(_start)
 
 SECTIONS {
-    . = 0x0000;
+    . = 0x10000;
 
     .text : ALIGN(4K) {
         KEEP(*(.text.boot))
-        . = 0x1000;
+        . = 0x11000;
         KEEP(*(.text.exception_vector_table_section))
         __end_init = .;
         *(.text)
