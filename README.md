@@ -16,5 +16,6 @@ replace
     const digit = a % base;
 
 with
+
     const digit = a - base * (a / base);
 
