@@ -4,8 +4,8 @@ const builtin = @import("builtin");
 
 pub fn build(b: *Builder) void {
     const mode = b.standardReleaseOptions();
-    const want_armv6 = b.option(bool, "armv6", "Build armv6 instead of armv7 (armv7 is default)") orelse false;
-    const want_armv7 = b.option(bool, "armv7", "Build armv7 instead of armv6 (armv7 is default)") orelse false;
+    const want_armv6 = b.option(bool, "armv6", "Build armv6") orelse false;
+    const want_armv7 = b.option(bool, "armv7", "Build armv7 (default)") orelse false;
 
     const exec_name = "zig-bare-metal-raspberry-pi";
     const exe = b.addExecutable(exec_name, "src/main.zig");
@@ -26,11 +26,9 @@ pub fn build(b: *Builder) void {
     }
     const os = builtin.Os.freestanding;
     const environ = builtin.Abi.eabihf;
-    exe.setTarget(arch, builtin.Os.freestanding, environ);
+    exe.setTarget(arch, os, environ);
     exe.addBuildOption(u32, "subarch", subarch);
-
-    const linker_script = "src/linker.ld";
-    exe.setLinkerScriptPath(linker_script);
+    exe.setLinkerScriptPath("src/linker.ld");
 
     const run_objcopy = b.addSystemCommand([_][]const u8{
         "llvm-objcopy-6.0", exe.getOutputPath(),

@@ -6,7 +6,7 @@ SECTIONS {
     .text : ALIGN(4K) {
         KEEP(*(.text.boot))
         . = 0x1000;
-        KEEP(*(.text.exception_vector_table_at_0x1000))
+        KEEP(*(.text.exception_vector_table))
         __end_init = .;
         *(.text)
     }

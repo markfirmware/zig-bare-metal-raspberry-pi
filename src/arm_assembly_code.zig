@@ -8,15 +8,11 @@ pub fn panicf(comptime fmt: []const u8, args: ...) noreturn {
     }
     already_panicking = true;
 
-    serial.log("panic: " ++ fmt, args);
+    serial.log("\npanic: " ++ fmt, args);
     hang("panic completed");
 }
 
-pub fn io(offset: u32) *volatile u32 {
-    return @intToPtr(*volatile u32, PERIPHERAL_BASE + offset);
-}
-
-pub fn ioStruct(comptime StructType: type, offset: u32) *volatile StructType {
+pub fn io(comptime StructType: type, offset: u32) *volatile StructType {
     return @intToPtr(*volatile StructType, PERIPHERAL_BASE + offset);
 }
 
@@ -95,6 +91,25 @@ pub fn setVectorBaseAddressRegister(address: u32) void {
         :
         : [address] "{r0}" (address)
     );
+}
+
+pub fn cntpct32() u32 {
+    return asm("mrrc p15, 0, %[cntpct_low], r1, c14"
+        : [cntpct_low] "=r" (-> usize)
+        :
+        : "r1");
+}
+
+var last_low: u32 = 0;
+var overflow: u32 = 0;
+pub fn seconds() u32 {
+    const frequency = 1*1000*1000;
+    const low = cntpct32();
+    if (low < last_low) {
+        overflow += 0xffffffff / frequency;
+    }
+    last_low = low;
+    return low / frequency + overflow;
 }
 
 // The linker will make the address of these global variables equal

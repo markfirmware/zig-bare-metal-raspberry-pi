@@ -50,6 +50,26 @@ pub const FrameBuffer = struct {
         fb.words[y * fb.pitch / 4 + x] = color;
     }
 
+    pub fn moveCursor(self: *FrameBuffer, x: u32, y: u32) void {
+        var enable: u32 = 1;
+        var x_pos = x;
+        var y_pos = y;
+        var flags: u32 = 1;
+        var status: u32 = undefined;
+        callVideoCoreProperties(&[_]PropertiesArg{
+            tag2(TAG_SET_CURSOR_STATE, 16, 4),
+            in(&enable),
+            in(&x_pos),
+            in(&y_pos),
+            in(&flags),
+            out(&status),
+            lastTagSentinel(),
+        });
+        if (status != 0) {
+            panicf("could not set frame buffer cursor");
+        }
+    }
+
     pub fn init(fb: *FrameBuffer) void {
         var width: u32 = 1920;
         var height: u32 = 1080;
@@ -65,7 +85,7 @@ pub const FrameBuffer = struct {
         fb.alpha_mode = 0;
 
         callVideoCoreProperties(&[_]PropertiesArg{
-            tag(TAG_ALLOCATE_FRAME_BUFFER, 8),
+            tag2(TAG_ALLOCATE_FRAME_BUFFER, 4, 8),
             in(&fb.alignment),
             out(@ptrCast(*u32, &fb.bytes)),
             out(&fb.size),
@@ -160,6 +180,7 @@ const TAG_GET_OVERSCAN = 0x4000A;
 const TAG_GET_PITCH = 0x40008;
 
 const TAG_SET_ALPHA_MODE = 0x48007;
+const TAG_SET_CURSOR_STATE = 0x8011;
 const TAG_SET_DEPTH = 0x48005;
 const TAG_SET_PHYSICAL_WIDTH_HEIGHT = 0x48003;
 const TAG_SET_PIXEL_ORDER = 0x48006;

@@ -1,4 +1,4 @@
-pub fn setAlt5(pin_number: u32) void {
+pub fn useAsAlt5(pin_number: u32) void {
       setPinPull(pin_number, Pull.None);
       setPinFunction(pin_number, GPIO_FUNCTION_ALT5);
 }
@@ -65,7 +65,7 @@ const GPIO_MAX_PIN = 53;
 const GPFSEL0 = PERIPHERAL_BASE + 0x200000;
 const GPSET0 = PERIPHERAL_BASE + 0x20001C;
 const GPCLR0 = PERIPHERAL_BASE + 0x200028;
-const GPPUD = arm.io(0x200094);
+const GPPUD = arm.io(u32, 0x200094);
 const GPPUDCLK0 = PERIPHERAL_BASE + 0x200098;
 
 const Pull = enum {

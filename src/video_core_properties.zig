@@ -1,5 +1,5 @@
 pub fn callVideoCoreProperties(args: []PropertiesArg) void {
-    if(args[args.len - 1].TagAndLength.tag != TAG_LAST_SENTINEL) {
+    if(args[args.len - 1].TagAndLengths.tag != TAG_LAST_SENTINEL) {
         panicf("video core mailbox buffer missing last tag sentinel");
     }
 
@@ -12,17 +12,18 @@ pub fn callVideoCoreProperties(args: []PropertiesArg) void {
     var next_tag_index = buf_index;
     for (args) |arg| {
         switch(arg) {
-            PropertiesArg.TagAndLength => |tag_and_length| {
-                if (tag_and_length.tag != 0) {
-//                  log("prepare tag {x} length {}", tag_and_length.tag, tag_and_length.length);
+            PropertiesArg.TagAndLengths => |tag_and_lengths| {
+                if (tag_and_lengths.tag != 0) {
+//                  log("prepare tag 0x{x} length in {} length out {}", tag_and_lengths.tag, tag_and_lengths.in_length, tag_and_lengths.out_length);
                 }
                 buf_index = next_tag_index;
-                add(tag_and_length.tag);
-                if (tag_and_length.tag != TAG_LAST_SENTINEL) {
-                    add(tag_and_length.length);
+                add(tag_and_lengths.tag);
+                if (tag_and_lengths.tag != TAG_LAST_SENTINEL) {
+                    const reserved_length = math.max(tag_and_lengths.in_length, tag_and_lengths.out_length);
+                    add(reserved_length);
                     const TAG_REQUEST = 0;
                     add(TAG_REQUEST);
-                    next_tag_index = buf_index + tag_and_length.length / 4;
+                    next_tag_index = buf_index + reserved_length / 4;
                 }
             },
             PropertiesArg.Out => {
@@ -56,17 +57,18 @@ pub fn callVideoCoreProperties(args: []PropertiesArg) void {
     next_tag_index = buf_index;
     for (args) |arg| {
         switch(arg) {
-            PropertiesArg.TagAndLength => |tag_and_length| {
-                if (tag_and_length.tag != 0) {
-//                  log("parse   tag {x} length {}", tag_and_length.tag, tag_and_length.length);
+            PropertiesArg.TagAndLengths => |tag_and_lengths| {
+                if (tag_and_lengths.tag != 0) {
+//                  log("parse   tag 0x{x} length in {} length out {}", tag_and_lengths.tag, tag_and_lengths.in_length, tag_and_lengths.out_length);
                 }
                 buf_index = next_tag_index;
-                check(tag_and_length.tag);
-                if (tag_and_length.tag != TAG_LAST_SENTINEL) {
-                    check(tag_and_length.length);
+                check(tag_and_lengths.tag);
+                if (tag_and_lengths.tag != TAG_LAST_SENTINEL) {
+                    const reserved_length = math.max(tag_and_lengths.in_length, tag_and_lengths.out_length);
+                    check(reserved_length);
                     const TAG_RESPONSE_OK = 0x80000000;
-                    check(TAG_RESPONSE_OK | tag_and_length.length);
-                    next_tag_index = buf_index + tag_and_length.length / 4;
+                    check(TAG_RESPONSE_OK | tag_and_lengths.out_length);
+                    next_tag_index = buf_index + reserved_length / 4;
                 }
             },
             PropertiesArg.Out => |ptr| {
@@ -102,27 +104,32 @@ pub fn set(ptr: *u32) PropertiesArg {
 }
 
 pub fn tag(the_tag: u32, length: u32) PropertiesArg {
-    return PropertiesArg{ .TagAndLength = TagAndLength{ .tag = the_tag, .length = length } };
+    return tag2(the_tag, length, length);
+}
+
+pub fn tag2(the_tag: u32, in_length: u32, out_length: u32) PropertiesArg {
+    return PropertiesArg{ .TagAndLengths = TagAndLengths{ .tag = the_tag, .in_length = in_length, .out_length = out_length } };
 }
 
 pub const PropertiesArg = union(enum) {
     In: *u32,
     Out: *u32,
     Set: *u32,
-    TagAndLength: TagAndLength,
+    TagAndLengths: TagAndLengths,
 };
 
-const TagAndLength = struct {
+const TagAndLengths = struct {
     tag: u32,
-    length: u32,
+    in_length: u32,
+    out_length: u32,
 };
 
 var buf_index: u32 = undefined;
 
-fn check(word: u32) void {
-    const was = next();
-    if (was != word) {
-        panicf("video core mailbox failed index {} was {}/{x} expected {}/{x}", buf_index - 1, was, was, word, word);
+fn check(expected: u32) void {
+    const actual = next();
+    if (actual != expected) {
+        panicf("video core mailbox failed index {} actual {}/0x{x} expected {}/0x{x}", buf_index - 1, actual, actual, expected, expected);
     }
 }
 
@@ -147,5 +154,6 @@ fn advance() void {
 const arm = @import("arm_assembly_code.zig");
 const log = @import("serial.zig").log;
 const mailboxes = @import("video_core_mailboxes.zig").mailboxes;
+const math = std.math;
 const panicf = arm.panicf;
 const std = @import("std");
