@@ -1,3 +1,9 @@
+
+pub fn useAsAlt3(pin_number: u32) void {
+      setPinPull(pin_number, Pull.None);
+      setPinFunction(pin_number, GPIO_FUNCTION_ALT3);
+}
+
 pub fn useAsAlt5(pin_number: u32) void {
       setPinPull(pin_number, Pull.None);
       setPinFunction(pin_number, GPIO_FUNCTION_ALT5);
@@ -34,7 +40,7 @@ pub fn ioArrayOf(base: u32, field_size: u32, length: u32) type {
         const Self = @This();
 
         fn write(self: Self, index: u32, value: u32) void {
-            const field_mask = u32(1) << @intCast(u5, field_size - 1);
+            const field_mask = (u32(1) << @intCast(u5, field_size)) - 1;
             rangeCheck(index, length - 1);
             rangeCheck(value, field_mask);
             const fields_per_word = 32 / field_size;
@@ -74,9 +80,9 @@ const Pull = enum {
     Up,
 };
 
-const GPIO_FUNCTION_FIELD_SIZE: u32 = 3;
-const GPIO_FUNCTION_OUT: u32 = 1;
-const GPIO_FUNCTION_ALT5: u32 = 2;
+const GPIO_FUNCTION_OUT = 1;
+const GPIO_FUNCTION_ALT5 = 2;
+const GPIO_FUNCTION_ALT3 = 7;
 
 const arm = @import("arm_assembly_code.zig");
 const panicf = arm.panicf;

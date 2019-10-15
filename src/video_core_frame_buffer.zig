@@ -19,28 +19,22 @@ pub const FrameBuffer = struct {
     overscan_right: u32,
 
     fn clear(fb: *FrameBuffer, color: Color) void {
+        const color32: u32 = self.color32(Color);
         var y: u32 = 0;
         while (y < fb.virtual_height) : (y += 1) {
             var x: u32 = 0;
             while (x < fb.virtual_width) : (x += 1) {
-                fb.drawPixel(x, y, color);
+                fb.drawPixel32(x, y, color32);
             }
         }
     }
 
     fn drawPixel(fb: *FrameBuffer, x: u32, y: u32, color: Color) void {
-        if (x >= fb.virtual_width or y >= fb.virtual_height) {
-            panicf("frame buffer index {}, {} does not fit in {}x{}", x, y, fb.virtual_width, fb.virtual_height);
-        }
-        const offset = y * fb.pitch + x * 4;
-        fb.bytes[offset + 0] = color.blue;
-        fb.bytes[offset + 1] = color.green;
-        fb.bytes[offset + 2] = color.red;
-        fb.bytes[offset + 3] = @intCast(u8, 255 - @intCast(i32, color.alpha));
+        drawPixel32(x, y, fb.color32(color));
     }
 
     fn color32(fb: *FrameBuffer, color: Color) u32 {
-        return (255 - @intCast(u32, color.alpha) << 24) | @intCast(u32, color.red) << 16 | @intCast(u32, color.green) << 8 | @intCast(u32, color.blue) << 0;
+        return 255 - @intCast(u32, color.alpha) << 24 | @intCast(u32, color.red) << 16 | @intCast(u32, color.green) << 8 | @intCast(u32, color.blue) << 0;
     }
 
     fn drawPixel32(fb: *FrameBuffer, x: u32, y: u32, color: u32) void {
@@ -48,6 +42,42 @@ pub const FrameBuffer = struct {
             panicf("frame buffer index {}, {} does not fit in {}x{}", x, y, fb.virtual_width, fb.virtual_height);
         }
         fb.words[y * fb.pitch / 4 + x] = color;
+    }
+
+    pub fn setCursor(self: *FrameBuffer, bitmap: *Bitmap) void {
+        var width: u32 = CURSOR_WIDTH;
+        var height: u32 = CURSOR_HEIGHT;
+        var unused: u32 = 0;
+        var pointer_to_pixels: u32 = @ptrToInt(&cursor);
+        var hot_spot_x: u32 = 0;
+        var hot_spot_y: u32 = 0;
+        var status: u32 = undefined;
+        var i: u32 = 0;
+        var y: u32 = 0;
+        while (y < height) : (y += 1) {
+            var x: u32 = 0;
+            while (x < width) : (x += 1) {
+                if (x < bitmap.width and y < bitmap.height) {
+                    cursor[i] = bitmap.getPixel32(x, y);
+                } else {
+                    cursor[i] = 0x00000000;
+                }
+                i += 1;
+            }
+        }
+        callVideoCoreProperties(&[_]PropertiesArg{
+            tag2(TAG_SET_CURSOR_INFO, 24, 4),
+            in(&width),
+            in(&height),
+            in(&unused),
+            in(&pointer_to_pixels),
+            in(&hot_spot_x),
+            in(&hot_spot_y),
+            out(&status),
+        });
+        if (status != 0) {
+            panicf("could not set frame buffer cursor");
+        }
     }
 
     pub fn moveCursor(self: *FrameBuffer, x: u32, y: u32) void {
@@ -63,16 +93,15 @@ pub const FrameBuffer = struct {
             in(&y_pos),
             in(&flags),
             out(&status),
-            lastTagSentinel(),
         });
         if (status != 0) {
-            panicf("could not set frame buffer cursor");
+            panicf("could not move frame buffer cursor");
         }
     }
 
     pub fn init(fb: *FrameBuffer) void {
-        var width: u32 = 1920;
-        var height: u32 = 1080;
+        var width: u32 = if (build_options.is_qemu) 800 else 1920;
+        var height: u32 = if (build_options.is_qemu) 600 else 1080;
         fb.alignment = 256;
         fb.physical_width = width;
         fb.physical_height = height;
@@ -111,7 +140,6 @@ pub const FrameBuffer = struct {
             out(&fb.overscan_bottom),
             out(&fb.overscan_left),
             out(&fb.overscan_right),
-            lastTagSentinel(),
         });
 
         if (@ptrToInt(fb.bytes) == 0) {
@@ -130,49 +158,63 @@ pub const Color = struct {
     alpha: u8,
 };
 
+pub const Spritesheet = struct {
+    bitmap: *Bitmap,
+    sprite_width: u32,
+    sprite_height: u32,
+    rows: u32,
+    columns: u32,
+
+    fn init(self: *Spritesheet, bitmap: *Bitmap, sprite_width: u32, sprite_height: u32) void {
+        self.bitmap = bitmap;
+        self.sprite_width = sprite_width;
+        self.sprite_height = sprite_height;
+        self.rows = bitmap.height / sprite_height;
+        self.columns = bitmap.width / sprite_width;
+    }
+
+    fn draw(self: Spritesheet, index: u32, fb_x: u32, fb_y: u32) void {
+        const row = index / self.columns;
+        const column = index - row * self.columns;
+        assert(row < self.rows);
+        assert(column < self.columns);
+        const sheet_x = column * self.sprite_width;
+        const sheet_y = row * self.sprite_height;
+        self.bitmap.drawRect(self.sprite_width, self.sprite_height, sheet_x, sheet_y, fb_x, fb_y);
+    }
+};
+
 pub const Bitmap = struct {
     frame_buffer: *FrameBuffer,
     pixel_array: [*]u8,
     width: u32,
     height: u32,
 
-    fn getU32(base: [*]u8, offset: u32) u32 {
-        var word: u32 =0;
-        var i: u32 = 0;
-        while (i <= 3) : (i += 1) {
-            word >>= 8;
-            word |= @intCast(u32, @intToPtr(*u8, @ptrToInt(base) + offset + i).*) << 24;
-        }
-        return word;
-    }
-
-    pub fn init(bitmap: *Bitmap, frame_buffer: *FrameBuffer, file: []u8) void {
+    fn init(bitmap: *Bitmap, frame_buffer: *FrameBuffer, file: [*]u8) void {
         bitmap.frame_buffer = frame_buffer;
-        bitmap.pixel_array = @intToPtr([*]u8, @ptrToInt(file.ptr) + getU32(file.ptr, 0x0A));
-        bitmap.width = getU32(file.ptr, 0x12);
-        bitmap.height = getU32(file.ptr, 0x16);
+        bitmap.pixel_array = @intToPtr([*]u8, @ptrToInt(file) + arm.getUnalignedU32(file, 0x0A));
+        bitmap.width = arm.getUnalignedU32(file, 0x12);
+        bitmap.height = arm.getUnalignedU32(file, 0x16);
     }
 
-    fn getPixel(self: *Bitmap, x: u32, y: u32) Color {
-        const argb = getU32(self.pixel_array, ((self.height - 1 - y) * self.width + x) * @sizeOf(u32));
-        return Color{
-            .alpha = @intCast(u8, (argb >> 24) & 0xff),
-            .red = @intCast(u8, (argb >> 16) & 0xff),
-            .green = @intCast(u8, (argb >> 8) & 0xff),
-            .blue = @intCast(u8, (argb >> 0) & 0xff),
-        };
+    fn getPixel32(self: *Bitmap, x: u32, y: u32) u32 {
+        return arm.getUnalignedU32(self.pixel_array, ((self.height - 1 - y) * self.width + x) * 4);
     }
 
     fn drawRect(self: *Bitmap, width: u32, height: u32, x1: u32, y1: u32, x2: u32, y2: u32) void {
         var y: u32 = 0;
-        while( y < height) : (y += 1) {
+        while(y < height) : (y += 1) {
             var x: u32 = 0;
             while (x < width) : (x += 1) {
-                self.frame_buffer.drawPixel(x + x2, y + y2, self.getPixel(x + x1, y + y1));
+                self.frame_buffer.drawPixel32(x + x2, y + y2, self.getPixel32(x + x1, y + y1));
             }
         }
     }
 };
+
+const CURSOR_WIDTH = 16;
+const CURSOR_HEIGHT = 16;
+var cursor: [CURSOR_WIDTH * CURSOR_HEIGHT]u32 = undefined;
 
 const TAG_ALLOCATE_FRAME_BUFFER = 0x40001;
 
@@ -180,6 +222,7 @@ const TAG_GET_OVERSCAN = 0x4000A;
 const TAG_GET_PITCH = 0x40008;
 
 const TAG_SET_ALPHA_MODE = 0x48007;
+const TAG_SET_CURSOR_INFO = 0x8010;
 const TAG_SET_CURSOR_STATE = 0x8011;
 const TAG_SET_DEPTH = 0x48005;
 const TAG_SET_PHYSICAL_WIDTH_HEIGHT = 0x48003;
@@ -188,6 +231,9 @@ const TAG_SET_VIRTUAL_OFFSET = 0x48009;
 const TAG_SET_VIRTUAL_WIDTH_HEIGHT = 0x48004;
 
 const arm = @import("arm_assembly_code.zig");
+const assert = std.debug.assert;
+const build_options = @import("build_options");
 const log = @import("serial.zig").log;
 const panicf = arm.panicf;
+const std = @import("std");
 use @import("video_core_properties.zig");

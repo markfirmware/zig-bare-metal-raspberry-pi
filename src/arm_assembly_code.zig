@@ -8,24 +8,26 @@ pub fn panicf(comptime fmt: []const u8, args: ...) noreturn {
     }
     already_panicking = true;
 
-    serial.log("\npanic: " ++ fmt, args);
+    log("\npanic: " ++ fmt, args);
     hang("panic completed");
+}
+
+pub fn getUnalignedU32(base: [*]u8, offset: u32) u32 {
+    var word: u32 = 0;
+    var i: u32 = 0;
+    while (i <= 3) : (i += 1) {
+        word >>= 8;
+        word |= @intCast(u32, @intToPtr(*u8, @ptrToInt(base) + offset + i).*) << 24;
+    }
+    return word;
 }
 
 pub fn io(comptime StructType: type, offset: u32) *volatile StructType {
     return @intToPtr(*volatile StructType, PERIPHERAL_BASE + offset);
 }
 
-// Loop count times in a way that the compiler won't optimize away.
-pub fn delay(count: usize) void {
-    var i: usize = 0;
-    while (i < count) : (i += 1) {
-        asm volatile("mov r0, r0");
-    }
-}
-
 pub fn hang(comptime format: []const u8, args: ...) noreturn {
-    serial.log(format, args);
+    log(format, args);
     while (true) {
         if (build_options.subarch >= 7) {
             v7.wfe();
@@ -87,30 +89,71 @@ pub fn dsbSt() void {
 }
 
 pub fn setVectorBaseAddressRegister(address: u32) void {
-    asm volatile("mcr p15, #0, %[address], cr12, cr0, 0"
+    asm volatile("mcr p15, 0, %[address], cr12, cr0, 0"
         :
         : [address] "{r0}" (address)
     );
+}
+
+pub fn setCntfrq(word: u32) void {
+    asm volatile("mcr p15, 0, %[word], c14, c0, 0"
+        :
+        : [word] "{r0}" (word)
+    );
+}
+
+pub fn cntfrq() u32 {
+    var word = asm("mrc p15, 0, %[word], c14, c0, 0"
+        : [word] "=r" (-> usize));
+    return word;
 }
 
 pub fn cntpct32() u32 {
     return asm("mrrc p15, 0, %[cntpct_low], r1, c14"
         : [cntpct_low] "=r" (-> usize)
         :
-        : "r1");
+        : "r1"
+    );
 }
 
-var last_low: u32 = 0;
-var overflow: u32 = 0;
-pub fn seconds() u32 {
-    const frequency = 1*1000*1000;
-    const low = cntpct32();
-    if (low < last_low) {
-        overflow += 0xffffffff / frequency;
+// Loop count times in a way that the compiler won't optimize away.
+pub fn delay(count: usize) void {
+    var i: usize = 0;
+    while (i < count) : (i += 1) {
+        asm volatile("mov r0, r0");
     }
-    last_low = low;
-    return low / frequency + overflow;
 }
+
+pub fn delayMilliseconds(duration: u32) void {
+    const start = milliseconds.read();
+    while (milliseconds.read() < start + duration) {
+    }
+}
+
+pub var microseconds: Timer = undefined;
+pub var milliseconds: Timer = undefined;
+pub var seconds: Timer = undefined;
+
+const Timer = struct {
+    frequency: u32,
+    last_low: u32,
+    overflow: u32,
+
+    fn initScale(self: *Timer, scale: u32) void {
+        self.frequency = cntfrq() / scale;
+        self.last_low = cntpct32();
+        self.overflow = 0;
+    }
+
+    fn read(self: *Timer) u32 {
+        const low = cntpct32();
+        if (low < self.last_low) {
+            self.overflow += 0xffffffff / self.frequency;
+        }
+        self.last_low = low;
+        return low / self.frequency + self.overflow;
+    }
+};
 
 // The linker will make the address of these global variables equal
 // to the value we are interested in. The memory at the address
@@ -123,5 +166,46 @@ pub fn setBssToZero() void {
     @memset((*volatile [1]u8)(&__bss_start), 0, @ptrToInt(&__bss_end) - @ptrToInt(&__bss_start));
 }
 
+comptime {
+    asm(
+        \\.section .text.boot // .text.boot to keep this in the first portion of the binary
+        \\.globl _start
+        \\_start:
+    );
+
+    if (build_options.subarch >= 7) {
+        asm(
+            \\ mrc p15, 0, r0, c0, c0, 5
+            \\ and r0,#3
+            \\ cmp r0,#0
+            \\ beq core_0
+            \\
+            \\not_core_0:
+            \\ wfe
+            \\ b not_core_0
+            \\
+            \\core_0:
+        );
+    }
+
+    asm(
+        \\ cps #0x1f // enter system mode
+        \\ mov sp,#0x08000000
+        \\ bl kernelMain
+        \\
+        \\.section .text.exception_vector_table
+        \\.balign 0x80
+        \\exception_vector_table:
+        \\ b exceptionEntry0x00
+        \\ b exceptionEntry0x01
+        \\ b exceptionEntry0x02
+        \\ b exceptionEntry0x03
+        \\ b exceptionEntry0x04
+        \\ b exceptionEntry0x05
+        \\ b exceptionEntry0x06
+        \\ b exceptionEntry0x07
+    );
+}
+
 const build_options = @import("build_options");
-const serial = @import("serial.zig");
+const log = @import("serial.zig").log;

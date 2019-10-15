@@ -1,8 +1,4 @@
 pub fn callVideoCoreProperties(args: []PropertiesArg) void {
-    if(args[args.len - 1].TagAndLengths.tag != TAG_LAST_SENTINEL) {
-        panicf("video core mailbox buffer missing last tag sentinel");
-    }
-
     buf_index = 0;
 
     var buffer_length_in_bytes: u32 = 0;
@@ -18,13 +14,11 @@ pub fn callVideoCoreProperties(args: []PropertiesArg) void {
                 }
                 buf_index = next_tag_index;
                 add(tag_and_lengths.tag);
-                if (tag_and_lengths.tag != TAG_LAST_SENTINEL) {
-                    const reserved_length = math.max(tag_and_lengths.in_length, tag_and_lengths.out_length);
-                    add(reserved_length);
-                    const TAG_REQUEST = 0;
-                    add(TAG_REQUEST);
-                    next_tag_index = buf_index + reserved_length / 4;
-                }
+                const reserved_length = math.max(tag_and_lengths.in_length, tag_and_lengths.out_length);
+                add(reserved_length);
+                const TAG_REQUEST = 0;
+                add(TAG_REQUEST);
+                next_tag_index = buf_index + reserved_length / 4;
             },
             PropertiesArg.Out => {
             },
@@ -36,6 +30,11 @@ pub fn callVideoCoreProperties(args: []PropertiesArg) void {
             },
         }
     }
+
+    buf_index = next_tag_index;
+    const TAG_LAST_SENTINEL = 0;
+    add(TAG_LAST_SENTINEL);
+
     buffer_length_in_bytes = buf_index * 4;
     buf_index = 0;
     add(buffer_length_in_bytes);
@@ -63,13 +62,11 @@ pub fn callVideoCoreProperties(args: []PropertiesArg) void {
                 }
                 buf_index = next_tag_index;
                 check(tag_and_lengths.tag);
-                if (tag_and_lengths.tag != TAG_LAST_SENTINEL) {
-                    const reserved_length = math.max(tag_and_lengths.in_length, tag_and_lengths.out_length);
-                    check(reserved_length);
-                    const TAG_RESPONSE_OK = 0x80000000;
-                    check(TAG_RESPONSE_OK | tag_and_lengths.out_length);
-                    next_tag_index = buf_index + reserved_length / 4;
-                }
+                const reserved_length = math.max(tag_and_lengths.in_length, tag_and_lengths.out_length);
+                check(reserved_length);
+                const TAG_RESPONSE_OK = 0x80000000;
+                check(TAG_RESPONSE_OK | tag_and_lengths.out_length);
+                next_tag_index = buf_index + reserved_length / 4;
             },
             PropertiesArg.Out => |ptr| {
                 ptr.* = next();
@@ -81,6 +78,9 @@ pub fn callVideoCoreProperties(args: []PropertiesArg) void {
             },
         }
     }
+
+    buf_index = next_tag_index;
+    check(TAG_LAST_SENTINEL);
 //  log("properties done");
 }
 
@@ -92,11 +92,6 @@ pub fn out(ptr: *u32) PropertiesArg {
 
 pub fn in(ptr: *u32) PropertiesArg {
     return PropertiesArg{ .In = ptr };
-}
-
-const TAG_LAST_SENTINEL = 0;
-pub fn lastTagSentinel() PropertiesArg {
-    return tag(TAG_LAST_SENTINEL, 0);
 }
 
 pub fn set(ptr: *u32) PropertiesArg {

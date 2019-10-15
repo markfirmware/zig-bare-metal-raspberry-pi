@@ -21,6 +21,8 @@ jobs:
         ZIG=$(wget --quiet --output-document=- https://ziglang.org/download/index.json | jq --raw-output '.master."x86_64-linux".tarball')
         wget --quiet --output-document=- $ZIG | tar Jx
         mv zig-linux-x86_64-* zig
+        sed -i 's/^ *const digit = a % base;$/const digit = a - base \* (a \/ base);/' zig/lib/zig/std/fmt.zig
+        grep -C10 'const digit = ' zig/lib/zig/std/fmt.zig
         echo zig version $(./zig/zig version)
     - name: build
       run: |

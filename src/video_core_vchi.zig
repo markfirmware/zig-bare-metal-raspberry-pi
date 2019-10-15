@@ -16,7 +16,6 @@ pub const Vchi = struct {
             tag(TAG_ENABLE_VCHI, 4),
             in(&slots_bus_address),
             out(&enable_status),
-            lastTagSentinel(),
         });
         if (enable_status != 0) {
             panicf("enable vchi failed 0x{x}", enable_status);
@@ -58,7 +57,7 @@ pub const Vchi = struct {
 
     fn initSlotZero(self: *Vchi) void {
         self.slot_zero.signature = name("VCHI");
-        self.slot_zero.version_and_min_version = (MIN_VERSION << 16) | VERSION;
+        self.slot_zero.version_and_min_version = MIN_VERSION << 16 | VERSION;
         self.slot_zero.slot_zero_size = @sizeOf(SlotZero);
         self.slot_zero.slot_size = SLOT_SIZE;
         self.slot_zero.total_slots = TOTAL_SLOTS;
@@ -128,7 +127,7 @@ pub const Vchi = struct {
     }
 
     fn slotIndex(byte_index: u32) u32 {
-        return (byte_index & (~u32(SLOT_SIZE) + 1)) >> SLOT_SIZE_WIDTH;
+        return (byte_index & ~u32(SLOT_SIZE) + 1) >> SLOT_SIZE_WIDTH;
     }
 
     fn peekWord(self: *Vchi, at: u32) u32 {
@@ -138,20 +137,6 @@ pub const Vchi = struct {
         const slot_number = self.slot_zero.remote.tx_slot_queue[slot_queue_index];
         const word = @intToPtr(*u32, self.slots_address + slot_number * SLOT_SIZE + offset).*;
         return word;
-    }
-
-    fn wasWordReceived(self: *Vchi) bool {
-        return self.rx_pos < self.slot_zero.remote.tx_pos;
-    }
-
-    fn receiveWord(self: *Vchi) u32 {
-        const word = @intToPtr(*u32, self.slots_address + self.slot_zero.remote.first_tx_slot_number * SLOT_SIZE + self.rx_pos).*;
-        self.rx_pos += 4;
-        return word;
-    }
-
-    fn getAt(self: *Vchi, i: usize) u32 {
-        return @intToPtr(*u32, self.slots_address + i * 4).*;
     }
 
     fn putAt(self:*Vchi, i: u32, x: u32) void {

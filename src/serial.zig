@@ -1,9 +1,15 @@
 const arm = @import("arm_assembly_code.zig");
+const build_options = @import("build_options");
 const fmt = std.fmt;
 const gpio = @import("gpio.zig");
 const io = arm.io;
 const PERIPHERAL_BASE = arm.PERIPHERAL_BASE;
 const std = @import("std");
+
+const uart0_registers = arm.io(Uart0Registers, 0x201000);
+const Uart0Registers = packed struct {
+    DR: u32,
+};
 
 const aux_registers = arm.io(AuxRegisters, 0x215000);
 const AuxRegisters = packed struct {
@@ -37,20 +43,32 @@ const AuxRegisters = packed struct {
 };
 
 pub fn writeByteBlocking(byte: u8) void {
-    while (aux_registers.AUX_MU_LSR_REG & 0x20 == 0) {
+    if (build_options.is_qemu) {
+        uart0_registers.DR = @intCast(u32, byte);
+    } else {
+        while (aux_registers.AUX_MU_LSR_REG & 0x20 == 0) {
+        }
+        aux_registers.AUX_MU_IO_REG = @intCast(u32, byte);
     }
-    aux_registers.AUX_MU_IO_REG = @intCast(u32, byte);
 }
 
 pub fn isReadByteReady() bool {
-    return aux_registers.AUX_MU_LSR_REG & 0x01 != 0;
+    if (build_options.is_qemu) {
+        return arm.io(u32, 0x201018).* & 0x10 == 0;
+    } else {
+        return aux_registers.AUX_MU_LSR_REG & 0x01 != 0;
+    }
 }
 
 pub fn readByte() u8 {
     // Wait for UART to have recieved something.
     while (!isReadByteReady()) {
     }
-    return @truncate(u8, aux_registers.AUX_MU_IO_REG);
+    if (build_options.is_qemu) {
+        return @truncate(u8, uart0_registers.DR);
+    } else {
+        return @truncate(u8, aux_registers.AUX_MU_IO_REG);
+    }
 }
 
 pub fn write(buffer: []const u8) void {
@@ -87,8 +105,12 @@ pub fn init() void {
 
 const NoError = error{};
 
+pub fn literal(comptime format: []const u8, args: ...) void {
+    fmt.format({}, NoError, logBytes, format, args) catch |e| switch (e) {};
+}
+
 pub fn log(comptime format: []const u8, args: ...) void {
-    fmt.format({}, NoError, logBytes, format ++ "\n", args) catch |e| switch (e) {};
+    literal(format ++ "\n", args);
 }
 
 fn logBytes(context: void, bytes: []const u8) NoError!void {
