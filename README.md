@@ -1,5 +1,6 @@
 instruction is at https://github.com/markfirmware/zig-bare-metal-raspberry-pi/blob/aligment-exception/asm.armv8#L1684
-alignment exception - serial output follows
+
+serial output follows
 
     sctlr_el3 c50838
     sctlr_el3 c50878
