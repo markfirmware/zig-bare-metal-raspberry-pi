@@ -7,13 +7,4 @@ disable_splash=1
 boot_delay=0
 cec_osd_name=Zig!
 
-[rpi0]
-kernel=zig-bare-metal-raspberry-pi-armv6.img
-[rpi1]
-kernel=zig-bare-metal-raspberry-pi-armv6.img
-[rpi2]
-kernel=zig-bare-metal-raspberry-pi-armv7.img
-[rpi3]
-kernel=zig-bare-metal-raspberry-pi-armv7.img
-[rpi4]
-kernel=zig-bare-metal-raspberry-pi-armv7.img
+kernel=zig-bare-metal-raspberry-pi-armv8.img

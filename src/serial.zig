@@ -1,15 +1,9 @@
 const arm = @import("arm_assembly_code.zig");
-const build_options = @import("build_options");
 const fmt = std.fmt;
 const gpio = @import("gpio.zig");
 const io = arm.io;
 const PERIPHERAL_BASE = arm.PERIPHERAL_BASE;
 const std = @import("std");
-
-const uart0_registers = arm.io(Uart0Registers, 0x201000);
-const Uart0Registers = packed struct {
-    DR: u32,
-};
 
 const aux_registers = arm.io(AuxRegisters, 0x215000);
 const AuxRegisters = packed struct {
@@ -42,33 +36,48 @@ const AuxRegisters = packed struct {
     AUX_MU_BAUD_REG: u32,
 };
 
-pub fn writeByteBlocking(byte: u8) void {
-    if (build_options.is_qemu) {
-        uart0_registers.DR = @intCast(u32, byte);
-    } else {
-        while (aux_registers.AUX_MU_LSR_REG & 0x20 == 0) {
-        }
-        aux_registers.AUX_MU_IO_REG = @intCast(u32, byte);
+var output_queue: [16 * 1024]u8 = undefined;
+var output_queue_write: usize = 0;
+var output_queue_read: usize = 0;
+pub fn loadOutputFifo() void {
+    while (!isOutputQueueEmpty() and isWriteByteReady()) {
+        writeByteBlockingActual(output_queue[output_queue_read]);
+        output_queue_read = output_queue_read + 1 & (output_queue.len - 1);
     }
 }
 
-pub fn isReadByteReady() bool {
-    if (build_options.is_qemu) {
-        return arm.io(u32, 0x201018).* & 0x10 == 0;
-    } else {
-        return aux_registers.AUX_MU_LSR_REG & 0x01 != 0;
+pub fn isOutputQueueEmpty() bool {
+    return output_queue_read == output_queue_write;
+}
+
+pub fn writeByteBlocking(byte: u8) void {
+    const next = output_queue_write + 1 & (output_queue.len - 1);
+    while (next == output_queue_read) {
+        loadOutputFifo();
     }
+    output_queue[output_queue_write] = byte;
+    output_queue_write = next;
+}
+
+pub fn writeByteBlockingActual(byte: u8) void {
+    while (!isWriteByteReady()) {
+    }
+    aux_registers.AUX_MU_IO_REG = @intCast(u32, byte);
+}
+
+pub fn isWriteByteReady() bool {
+    return aux_registers.AUX_MU_LSR_REG & 0x20 != 0;
+}
+
+pub fn isReadByteReady() bool {
+    return aux_registers.AUX_MU_LSR_REG & 0x01 != 0;
 }
 
 pub fn readByte() u8 {
     // Wait for UART to have recieved something.
     while (!isReadByteReady()) {
     }
-    if (build_options.is_qemu) {
-        return @truncate(u8, uart0_registers.DR);
-    } else {
-        return @truncate(u8, aux_registers.AUX_MU_IO_REG);
-    }
+    return @truncate(u8, aux_registers.AUX_MU_IO_REG);
 }
 
 pub fn write(buffer: []const u8) void {
@@ -97,7 +106,7 @@ pub fn init() void {
     aux_registers.AUX_MU_MCR_REG = 0;
     aux_registers.AUX_MU_IER_REG = 0;
     aux_registers.AUX_MU_IIR_REG = 0xC6;
-    aux_registers.AUX_MU_BAUD_REG = 270;
+    aux_registers.AUX_MU_BAUD_REG = 68; //270;
     gpio.useAsAlt5(14);
     gpio.useAsAlt5(15);
     aux_registers.AUX_MU_CNTL_REG = 3;

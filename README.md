@@ -1,35 +1,15 @@
-zig logo is displayed
+alignment exception - serial output follows
 
-The frame buffer cursor moves around the screen in response to the tv remote controller buttons. This requires the Consumer Electronics Control (CEC) feature on the tv.
+    sctlr_el3 c50838
+    sctlr_el3 c50878
+    sctlr_el3 c50878
 
-Successfully tested on rpi3b, rpi3b+
 
-Not yet working on armv6 raspberry pi models
-
-Not yet tested on rpi4b
-
-Building
---------
-
-Requires the following patch to lib/zig/std/fmt.zig:
-
-replace
-
-    const digit = a % base;
-
-with
-
-    const digit = a - base * (a / base);
-
-Testing
--------
-
-    zig build qemu -Dqemu
-
-(yes, the -Dqemu is needed at this time)
-
-or
-
-    zig build qemu -Dqemu -Dnodisplay
-
-to omit the frame buffer display
+    alignment fault data abort exception level 3 (no change) 32 bit instruction at 0x19d8 reading from 0x7ffffb8
+    CurrentEL c exception level 3
+    esr_el3 96000021 class 0x25
+    spsr_el3 600003cd
+    elr_el3 19d8
+    far_el3 7ffffb8
+    sctlr_el3 c50838
+    core 0 is now idle in arm exception handler (other cores were already idle from start up)
