@@ -31,6 +31,8 @@ jobs:
         cp -a $REPO-armv6.img boot/
         ./zig/zig build -Darmv7
         cp -a $REPO-armv7.img boot/
+        ./zig/zig build -Darmv8
+        cp -a $REPO-armv8.img boot/
     - name: release draft
       env:
         GITHUB_USER: $GITHUB_ACTOR

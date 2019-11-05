@@ -14,6 +14,6 @@ kernel=zig-bare-metal-raspberry-pi-armv6.img
 [rpi2]
 kernel=zig-bare-metal-raspberry-pi-armv7.img
 [rpi3]
-kernel=zig-bare-metal-raspberry-pi-armv7.img
+kernel=zig-bare-metal-raspberry-pi-armv8.img
 [rpi4]
-kernel=zig-bare-metal-raspberry-pi-armv7.img
+kernel=zig-bare-metal-raspberry-pi-armv8.img

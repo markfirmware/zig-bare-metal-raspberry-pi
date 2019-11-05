@@ -79,6 +79,7 @@ pub fn textGridOf(rows: u32, columns: u32) type {
     return SomeTextGrid;
 }
 
+const arm = @import("arm_assembly_code.zig");
 const math = @import("std").math;
-const panicf = @import("arm_assembly_code.zig").panicf;
+const panicf = arm.panicf;
 const Spritesheet = @import("video_core_frame_buffer.zig").Spritesheet;

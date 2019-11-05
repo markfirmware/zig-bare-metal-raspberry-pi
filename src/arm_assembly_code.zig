@@ -1,3 +1,4 @@
+
 pub const PERIPHERAL_BASE = if (build_options.subarch >= 7) 0x3F000000 else 0x20000000;
 
 var already_panicking: bool = false;
@@ -28,8 +29,12 @@ pub fn io(comptime StructType: type, offset: u32) *volatile StructType {
 
 pub fn hang(comptime format: []const u8, args: ...) noreturn {
     log(format, args);
+    var time = milliseconds.read();
+    while (!serial.isOutputQueueEmpty()) {
+        serial.loadOutputFifo();
+    }
     while (true) {
-        if (build_options.subarch >= 7) {
+      if (build_options.subarch >= 7) {
             v7.wfe();
         }
     }
@@ -47,25 +52,25 @@ pub const v7 = struct {
     }
 };
 
-pub fn sp() u32 {
+pub fn sp() usize {
     var word = asm("mov %[word], sp"
         : [word] "=r" (-> usize));
     return word;
 }
 
-pub fn cpsr() u32 {
+pub fn cpsr() usize {
     var word = asm("mrs %[word], cpsr"
         : [word] "=r" (-> usize));
     return word;
 }
 
-pub fn spsr() u32 {
+pub fn spsr() usize {
     var word = asm("mrs %[word], spsr"
         : [word] "=r" (-> usize));
     return word;
 }
 
-pub fn sctlr() u32 {
+pub fn sctlr() usize {
     var word = asm("mrc p15, 0, %[word], c1, c0, 0"
         : [word] "=r" (-> usize));
     return word;
@@ -89,38 +94,72 @@ pub fn dsbSt() void {
 }
 
 pub fn setVectorBaseAddressRegister(address: u32) void {
-    asm volatile("mcr p15, 0, %[address], cr12, cr0, 0"
-        :
-        : [address] "{r0}" (address)
-    );
+    if (build_options.subarch >= 8) {
+        asm volatile("mcr p15, 0, %[address], cr12, cr0, 0"
+            :
+            : [address] "{x0}" (address)
+        );
+    } else {
+        asm volatile("mcr p15, 0, %[address], cr12, cr0, 0"
+            :
+            : [address] "{r0}" (address)
+        );
+    }
 }
 
 pub fn setCntfrq(word: u32) void {
-    asm volatile("mcr p15, 0, %[word], c14, c0, 0"
-        :
-        : [word] "{r0}" (word)
-    );
+    if (build_options.subarch >= 8) {
+        asm volatile("msr cntfrq_el0, %[word]"
+            :
+            : [word] "{x0}" (word)
+        );
+    } else {
+        asm volatile("mcr p15, 0, %[word], c14, c0, 0"
+            :
+            : [word] "{r0}" (word)
+        );
+    }
 }
 
 pub fn cntfrq() u32 {
-    var word = asm("mrc p15, 0, %[word], c14, c0, 0"
-        : [word] "=r" (-> usize));
-    return word;
+    var word: usize = undefined;
+    if (build_options.subarch >= 8) {
+        word = asm volatile("mrs %[word], cntfrq_el0"
+            : [word] "=r" (-> usize)
+        );
+    } else {
+        word = asm("mrc p15, 0, %[word], c14, c0, 0"
+            : [word] "=r" (-> usize)
+        );
+    }
+    return @truncate(u32, word);
 }
 
 pub fn cntpct32() u32 {
-    return asm("mrrc p15, 0, %[cntpct_low], r1, c14"
-        : [cntpct_low] "=r" (-> usize)
-        :
-        : "r1"
-    );
+    var word: usize = undefined;
+    if (build_options.subarch >= 8) {
+        word = asm volatile("mrs %[word], cntpct_el0"
+            : [word] "=r" (-> usize)
+        );
+    } else {
+        word = asm("mrrc p15, 0, %[cntpct_low], r1, c14"
+            : [cntpct_low] "=r" (-> usize)
+            :
+            : "r1"
+        );
+    }
+    return @truncate(u32, word);
 }
 
 // Loop count times in a way that the compiler won't optimize away.
 pub fn delay(count: usize) void {
     var i: usize = 0;
     while (i < count) : (i += 1) {
-        asm volatile("mov r0, r0");
+        if (build_options.subarch >= 8) {
+            asm volatile("mov x0, x0");
+        } else {
+            asm volatile("mov r0, r0");
+        }
     }
 }
 
@@ -166,6 +205,7 @@ pub fn setBssToZero() void {
     @memset((*volatile [1]u8)(&__bss_start), 0, @ptrToInt(&__bss_end) - @ptrToInt(&__bss_start));
 }
 
+
 comptime {
     asm(
         \\.section .text.boot // .text.boot to keep this in the first portion of the binary
@@ -173,7 +213,7 @@ comptime {
         \\_start:
     );
 
-    if (build_options.subarch >= 7) {
+    if (build_options.subarch == 7) {
         asm(
             \\ mrc p15, 0, r0, c0, c0, 5
             \\ and r0,#3
@@ -188,24 +228,79 @@ comptime {
         );
     }
 
-    asm(
-        \\ cps #0x1f // enter system mode
-        \\ mov sp,#0x08000000
-        \\ bl kernelMain
-        \\
-        \\.section .text.exception_vector_table
-        \\.balign 0x80
-        \\exception_vector_table:
-        \\ b exceptionEntry0x00
-        \\ b exceptionEntry0x01
-        \\ b exceptionEntry0x02
-        \\ b exceptionEntry0x03
-        \\ b exceptionEntry0x04
-        \\ b exceptionEntry0x05
-        \\ b exceptionEntry0x06
-        \\ b exceptionEntry0x07
-    );
+    if (build_options.subarch <= 7) {
+        asm(
+            \\ cps #0x1f // enter system mode
+            \\ mov sp,#0x08000000
+            \\ bl kernelMain
+            \\
+            \\.section .text.exception_vector_table
+            \\.balign 0x80
+            \\exception_vector_table:
+            \\ b exceptionEntry0x00
+            \\ b exceptionEntry0x01
+            \\ b exceptionEntry0x02
+            \\ b exceptionEntry0x03
+            \\ b exceptionEntry0x04
+            \\ b exceptionEntry0x05
+            \\ b exceptionEntry0x06
+            \\ b exceptionEntry0x07
+        );
+    } else {
+        asm(
+            \\ mrs x0,mpidr_el1
+            \\ mov x1,#0xC1000000
+            \\ bic x0,x0,x1
+            \\ cbz x0,master
+            \\hang:
+            \\ wfe
+            \\ b hang
+            \\master:
+            \\ mov sp,#0x08000000
+            \\ mov x0,#0x1000 //exception_vector_table
+            \\ msr vbar_el3,x0
+            \\ msr vbar_el2,x0
+            \\ msr vbar_el1,x0
+            \\ bl kernelMain
+            \\.balign 0x800
+            \\.section .text.exception_vector_table
+            \\exception_vector_table:
+            \\.balign 0x80
+            \\ b exceptionEntry0x00
+            \\.balign 0x80
+            \\ b exceptionEntry0x01
+            \\.balign 0x80
+            \\ b exceptionEntry0x02
+            \\.balign 0x80
+            \\ b exceptionEntry0x03
+            \\.balign 0x80
+            \\ b exceptionEntry0x04
+            \\.balign 0x80
+            \\ b exceptionEntry0x05
+            \\.balign 0x80
+            \\ b exceptionEntry0x06
+            \\.balign 0x80
+            \\ b exceptionEntry0x07
+            \\.balign 0x80
+            \\ b exceptionEntry0x08
+            \\.balign 0x80
+            \\ b exceptionEntry0x09
+            \\.balign 0x80
+            \\ b exceptionEntry0x0A
+            \\.balign 0x80
+            \\ b exceptionEntry0x0B
+            \\.balign 0x80
+            \\ b exceptionEntry0x0C
+            \\.balign 0x80
+            \\ b exceptionEntry0x0D
+            \\.balign 0x80
+            \\ b exceptionEntry0x0E
+            \\.balign 0x80
+            \\ b exceptionEntry0x0F
+        );
+    }
 }
 
 const build_options = @import("build_options");
-const log = @import("serial.zig").log;
+const log = serial.log;
+const serial = @import("serial.zig");

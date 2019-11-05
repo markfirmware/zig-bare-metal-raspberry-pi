@@ -16,3 +16,4 @@
 * apply power to the pi
 * you should see the zig logo displayed along with a changing banner of colored lines
 * if your tv has CEC (Consumer Electronics Control) then the frame buffer cursor will move in response to tv remote controller buttons
+* nearby ble (bluetooth low energy) devices should be listed on the screen

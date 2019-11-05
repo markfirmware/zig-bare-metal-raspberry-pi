@@ -1,3 +1,4 @@
+
 pub const FrameBuffer = struct {
     alignment: u32,
     alpha_mode: u32,
@@ -48,7 +49,7 @@ pub const FrameBuffer = struct {
         var width: u32 = CURSOR_WIDTH;
         var height: u32 = CURSOR_HEIGHT;
         var unused: u32 = 0;
-        var pointer_to_pixels: u32 = @ptrToInt(&cursor);
+        var pointer_to_pixels = @truncate(u32, @ptrToInt(&cursor));
         var hot_spot_x: u32 = 0;
         var hot_spot_y: u32 = 0;
         var status: u32 = undefined;
@@ -160,22 +161,28 @@ pub const Color = struct {
 
 pub const Spritesheet = struct {
     bitmap: *Bitmap,
-    sprite_width: u32,
-    sprite_height: u32,
-    rows: u32,
     columns: u32,
+    max: u32,
+    min: u32,
+    rows: u32,
+    sprite_height: u32,
+    sprite_width: u32,
 
-    fn init(self: *Spritesheet, bitmap: *Bitmap, sprite_width: u32, sprite_height: u32) void {
+    fn init(self: *Spritesheet, bitmap: *Bitmap, sprite_width: u32, sprite_height: u32, min: u32, max: u32) void {
         self.bitmap = bitmap;
         self.sprite_width = sprite_width;
         self.sprite_height = sprite_height;
         self.rows = bitmap.height / sprite_height;
         self.columns = bitmap.width / sprite_width;
+        self.min = min;
+        self.max = max;
     }
 
     fn draw(self: Spritesheet, index: u32, fb_x: u32, fb_y: u32) void {
-        const row = index / self.columns;
-        const column = index - row * self.columns;
+        assert(index >= self.min and index <= self.max);
+        const entry = index - self.min;
+        const row = entry / self.columns;
+        const column = entry - row * self.columns;
         assert(row < self.rows);
         assert(column < self.columns);
         const sheet_x = column * self.sprite_width;
