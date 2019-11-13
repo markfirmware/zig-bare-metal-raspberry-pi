@@ -1,4 +1,3 @@
-
 pub const FrameBuffer = struct {
     alignment: u32,
     alpha_mode: u32,
@@ -148,7 +147,7 @@ pub const FrameBuffer = struct {
         }
         fb.bytes = @intToPtr([*]u8, @ptrToInt(fb.bytes) & 0x3FFFFFFF);
         fb.words = @intToPtr([*]u32, @ptrToInt(fb.bytes));
-//      log("fb align {} addr {x} alpha {} pitch {} order {} size {} physical {}x{} virtual {}x{} offset {},{} overscan t {} b {} l {} r {}", fb.alignment, @ptrToInt(fb.bytes), fb.alpha_mode, fb.pitch, fb.pixel_order, fb.size, fb.physical_width, fb.physical_height, fb.virtual_width, fb.virtual_height, fb.virtual_offset_x, fb.virtual_offset_y, fb.overscan_top, fb.overscan_bottom, fb.overscan_left, fb.overscan_right);
+        //      log("fb align {} addr {x} alpha {} pitch {} order {} size {} physical {}x{} virtual {}x{} offset {},{} overscan t {} b {} l {} r {}", fb.alignment, @ptrToInt(fb.bytes), fb.alpha_mode, fb.pitch, fb.pixel_order, fb.size, fb.physical_width, fb.physical_height, fb.virtual_width, fb.virtual_height, fb.virtual_offset_x, fb.virtual_offset_y, fb.overscan_top, fb.overscan_bottom, fb.overscan_left, fb.overscan_right);
     }
 };
 
@@ -210,7 +209,7 @@ pub const Bitmap = struct {
 
     fn drawRect(self: *Bitmap, width: u32, height: u32, x1: u32, y1: u32, x2: u32, y2: u32) void {
         var y: u32 = 0;
-        while(y < height) : (y += 1) {
+        while (y < height) : (y += 1) {
             var x: u32 = 0;
             while (x < width) : (x += 1) {
                 self.frame_buffer.drawPixel32(x + x2, y + y2, self.getPixel32(x + x1, y + y1));
@@ -243,4 +242,4 @@ const build_options = @import("build_options");
 const log = @import("serial.zig").log;
 const panicf = arm.panicf;
 const std = @import("std");
-use @import("video_core_properties.zig");
+usingnamespace @import("video_core_properties.zig");

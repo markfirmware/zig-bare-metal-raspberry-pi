@@ -40,11 +40,11 @@ pub fn build(b: *Builder) !void {
     exe.setTarget(arch, os, environ);
     exe.addBuildOption(u32, "subarch", subarch);
     exe.addBuildOption(bool, "is_qemu", want_qemu);
-    exe.setLinkerScriptPath(if (want_qemu and subarch <  8) "src/linker-qemu.ld" else "src/linker.ld");
+    exe.setLinkerScriptPath(if (want_qemu and subarch < 8) "src/linker-qemu.ld" else "src/linker.ld");
 
     const run_objcopy = b.addSystemCommand([_][]const u8{
-        "llvm-objcopy-6.0", exe.getOutputPath(),
-        "-O", "binary",
+        "llvm-objcopy", exe.getOutputPath(),
+        "-O",           "binary",
         kernel_name,
     });
     run_objcopy.step.dependOn(&exe.step);
@@ -63,12 +63,18 @@ pub fn build(b: *Builder) !void {
     } else {
         try run_qemu_args.appendSlice([_][]const u8{
             if (subarch == 8) "qemu-system-aarch64" else "qemu-system-arm",
-            "-kernel", exe.getOutputPath(),
-            "-m", "256",
-            "-M", if (subarch == 7) "raspi2" else "raspi3",
-            "-serial", if (subarch == 8) "none" else "stdio",
-            "-serial", if (subarch == 8) "stdio" else "none",
-            "-display", if (want_nodisplay) "none" else "gtk",
+            "-kernel",
+            exe.getOutputPath(),
+            "-m",
+            "256",
+            "-M",
+            if (subarch == 7) "raspi2" else "raspi3",
+            "-serial",
+            if (subarch == 8) "none" else "stdio",
+            "-serial",
+            if (subarch == 8) "stdio" else "none",
+            "-display",
+            if (want_nodisplay) "none" else "gtk",
         });
     }
     const run_qemu = b.addSystemCommand(run_qemu_args.toSliceConst());

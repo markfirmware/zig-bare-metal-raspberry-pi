@@ -1,7 +1,6 @@
-
 pub fn init() u32 {
     initUart0();
-    hciCommand(OGF_HOST_CONTROL, COMMAND_RESET_CHIP, &[_]u8{ });
+    hciCommand(OGF_HOST_CONTROL, COMMAND_RESET_CHIP, &[_]u8{});
     bcmLoadFirmware();
     setLeEventMask(0xff);
     startActiveScanning();
@@ -88,12 +87,12 @@ fn poll2(byte: u32) void {
             } else {
                 poll_state += 1;
             }
-        }
+        },
     }
 }
 
 fn setLeEventMask(mask: u8) void {
-   hciCommand(OGF_LE_CONTROL, 0x01, &[_]u8{ mask, 0, 0, 0, 0, 0, 0, 0 });
+    hciCommand(OGF_LE_CONTROL, 0x01, &[_]u8{ mask, 0, 0, 0, 0, 0, 0, 0 });
 }
 
 fn setLeScanEnable(state: bool, duplicates: bool) void {
@@ -101,17 +100,18 @@ fn setLeScanEnable(state: bool, duplicates: bool) void {
 }
 
 fn setLeScanParameters(type_: u8, interval: u16, window: u16, own_address_type: u8, filter_policy: u8) void {
-   hciCommand(OGF_LE_CONTROL, 0x0b, &[_]u8{ type_, lo(interval), hi(interval), lo(window), hi(window), own_address_type, filter_policy
-});
+    hciCommand(OGF_LE_CONTROL, 0x0b, &[_]u8{
+        type_, lo(interval), hi(interval), lo(window), hi(window), own_address_type, filter_policy,
+    });
 }
 
 fn startPassiveScanning() void {
-    setLeScanParameters(LL_SCAN_PASSIVE, @floatToInt(u32, BleScanInterval*BleScanUnitsPerSecond), @floatToInt(u32, BleScanWindow*BleScanUnitsPerSecond), 0x00, 0x00);
+    setLeScanParameters(LL_SCAN_PASSIVE, @floatToInt(u32, BleScanInterval * BleScanUnitsPerSecond), @floatToInt(u32, BleScanWindow * BleScanUnitsPerSecond), 0x00, 0x00);
     setLeScanEnable(true, false);
 }
 
 fn startActiveScanning() void {
-    setLeScanParameters(LL_SCAN_ACTIVE, @floatToInt(u32, BleScanInterval*BleScanUnitsPerSecond), @floatToInt(u32, BleScanWindow*BleScanUnitsPerSecond), 0x00, 0x00);
+    setLeScanParameters(LL_SCAN_ACTIVE, @floatToInt(u32, BleScanInterval * BleScanUnitsPerSecond), @floatToInt(u32, BleScanWindow * BleScanUnitsPerSecond), 0x00, 0x00);
     setLeScanEnable(true, false);
 }
 
@@ -120,7 +120,7 @@ fn StopScanning() void {
 }
 
 fn hciCommand(ogf: u16, ocf: u16, data: []const u8) void {
-    const op_code: u16 = u16(ogf) << 10 | ocf;
+    const op_code: u16 = @as(u16, ogf) << 10 | ocf;
     hciCommandBytes([_]u8{ @truncate(u8, op_code & 0xff), @truncate(u8, (op_code & 0xff00) >> 8) }, data);
 }
 
@@ -171,12 +171,12 @@ fn initUart0() void {
 fn bcmLoadFirmware() void {
     log("Firmware load ...");
     const fw = &@embedFile("../assets/BCM4345C0.hcd");
-    hciCommand(OGF_VENDOR, VENDOR_LOAD_FIRMWARE, &[_]u8{ });
+    hciCommand(OGF_VENDOR, VENDOR_LOAD_FIRMWARE, &[_]u8{});
     var i: u32 = 0;
     while (i < fw.len) {
-        const op_code = fw[i..i + 2];
+        const op_code = fw[i .. i + 2];
         const len = fw[i + 2];
-        const data = fw[i + 3..i + 3 + len];
+        const data = fw[i + 3 .. i + 3 + len];
         hciCommandBytes(op_code, data);
         i += 3 + len;
     }
@@ -191,8 +191,7 @@ pub fn isWritingDone() bool {
 
 pub fn writeByte(byte: u8) void {
     const TXFF = 0x20;
-    while (uart0_registers.FR & TXFF != 0) {
-    }
+    while (uart0_registers.FR & TXFF != 0) {}
     uart0_registers.DR = @intCast(u32, byte);
     serial.loadOutputFifo();
 }
@@ -203,15 +202,13 @@ pub fn isReadByteReady() bool {
 }
 
 pub fn waitReadByte() u8 {
-    while (!isReadByteReady()) {
-    }
+    while (!isReadByteReady()) {}
     return readByte("waitReadByte()");
 }
 
 var bytes_recently_received: u32 = 0;
 pub fn readByte32() u32 {
-    while (!isReadByteReady()) {
-    }
+    while (!isReadByteReady()) {}
     const word = uart0_registers.DR;
     bytes_recently_received += 1;
     return word;
@@ -226,7 +223,7 @@ pub fn readByte(message: []const u8) u8 {
 }
 
 fn boolToU8(x: bool) u8 {
-    return if (x) u8(1) else 0;
+    return if (x) @as(u8, 1) else 0;
 }
 
 fn lo(x: u16) u8 {
@@ -254,20 +251,20 @@ const Uart0Registers = packed struct {
     CR: u32,
 };
 
-const BleScanUnitsPerSecond     = 1600.0;
-const BleScanInterval           = 0.800;
-const BleScanWindow             = 0.400;
+const BleScanUnitsPerSecond = 1600.0;
+const BleScanInterval = 0.800;
+const BleScanWindow = 0.400;
 
-const COMMAND_RESET_CHIP        = 0x03;
+const COMMAND_RESET_CHIP = 0x03;
 const EVENT_TYPE_COMMAND_STATUS = 0x0e;
-const HCI_COMMAND_PKT           = 0x01;
-const HCI_EVENT_PKT             = 0x04;
-const OGF_HOST_CONTROL          = 0x03;
-const OGF_LE_CONTROL            = 0x08;
-const OGF_VENDOR                = 0x3f;
-const VENDOR_LOAD_FIRMWARE      = 0x2e;
-const LL_SCAN_PASSIVE           = 0x00;
-const LL_SCAN_ACTIVE            = 0x01;
+const HCI_COMMAND_PKT = 0x01;
+const HCI_EVENT_PKT = 0x04;
+const OGF_HOST_CONTROL = 0x03;
+const OGF_LE_CONTROL = 0x08;
+const OGF_VENDOR = 0x3f;
+const VENDOR_LOAD_FIRMWARE = 0x2e;
+const LL_SCAN_PASSIVE = 0x00;
+const LL_SCAN_ACTIVE = 0x01;
 
 const arm = @import("arm_assembly_code.zig");
 const assert = std.debug.assert;

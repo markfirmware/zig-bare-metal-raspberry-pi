@@ -1,4 +1,3 @@
-
 pub fn getTemperature() u32 {
     var temperature_id: u32 = 0;
     var temperature: u32 = undefined;
@@ -11,4 +10,4 @@ pub fn getTemperature() u32 {
     return temperature;
 }
 
-use @import("video_core_properties.zig");
+usingnamespace @import("video_core_properties.zig");
