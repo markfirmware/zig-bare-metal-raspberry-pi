@@ -1,4 +1,3 @@
-
 pub const PERIPHERAL_BASE = if (build_options.subarch >= 7) 0x3F000000 else 0x20000000;
 
 var already_panicking: bool = false;
@@ -34,7 +33,7 @@ pub fn hang(comptime format: []const u8, args: ...) noreturn {
         serial.loadOutputFifo();
     }
     while (true) {
-      if (build_options.subarch >= 7) {
+        if (build_options.subarch >= 7) {
             v7.wfe();
         }
     }
@@ -42,65 +41,72 @@ pub fn hang(comptime format: []const u8, args: ...) noreturn {
 
 pub const v7 = struct {
     pub inline fn mpidr() u32 {
-        var word = asm("mrc p15, 0, %[word], c0, c0, 5"
-            : [word] "=r" (-> usize));
+        var word = asm ("mrc p15, 0, %[word], c0, c0, 5"
+            : [word] "=r" (-> usize)
+        );
         return word;
     }
 
     pub inline fn wfe() void {
-        asm volatile("wfe");
+        asm volatile ("wfe");
     }
 };
 
 pub fn sp() usize {
-    var word = asm("mov %[word], sp"
-        : [word] "=r" (-> usize));
+    var word = asm ("mov %[word], sp"
+        : [word] "=r" (-> usize)
+    );
     return word;
 }
 
 pub fn cpsr() usize {
-    var word = asm("mrs %[word], cpsr"
-        : [word] "=r" (-> usize));
+    var word = asm ("mrs %[word], cpsr"
+        : [word] "=r" (-> usize)
+    );
     return word;
 }
 
 pub fn spsr() usize {
-    var word = asm("mrs %[word], spsr"
-        : [word] "=r" (-> usize));
+    var word = asm ("mrs %[word], spsr"
+        : [word] "=r" (-> usize)
+    );
     return word;
 }
 
 pub fn sctlr() usize {
-    var word = asm("mrc p15, 0, %[word], c1, c0, 0"
-        : [word] "=r" (-> usize));
+    var word = asm ("mrc p15, 0, %[word], c1, c0, 0"
+        : [word] "=r" (-> usize)
+    );
     return word;
 }
 
 pub fn scr() u32 {
-    var word = asm("mrc p15, 0, %[word], c1, c1, 0"
-        : [word] "=r" (-> usize));
+    var word = asm ("mrc p15, 0, %[word], c1, c1, 0"
+        : [word] "=r" (-> usize)
+    );
     return word;
 }
 
 pub fn dsbSt() void {
     if (build_options.subarch >= 7) {
-        asm volatile("dsb st");
+        asm volatile ("dsb st");
     } else {
-        asm volatile("mcr p15, 0, r0, c7, c10, 4"
+        asm volatile ("mcr p15, 0, r0, c7, c10, 4"
             :
             :
-            : "r0");
+            : "r0"
+        );
     }
 }
 
 pub fn setVectorBaseAddressRegister(address: u32) void {
     if (build_options.subarch >= 8) {
-        asm volatile("mcr p15, 0, %[address], cr12, cr0, 0"
+        asm volatile ("mcr p15, 0, %[address], cr12, cr0, 0"
             :
             : [address] "{x0}" (address)
         );
     } else {
-        asm volatile("mcr p15, 0, %[address], cr12, cr0, 0"
+        asm volatile ("mcr p15, 0, %[address], cr12, cr0, 0"
             :
             : [address] "{r0}" (address)
         );
@@ -109,12 +115,12 @@ pub fn setVectorBaseAddressRegister(address: u32) void {
 
 pub fn setCntfrq(word: u32) void {
     if (build_options.subarch >= 8) {
-        asm volatile("msr cntfrq_el0, %[word]"
+        asm volatile ("msr cntfrq_el0, %[word]"
             :
             : [word] "{x0}" (word)
         );
     } else {
-        asm volatile("mcr p15, 0, %[word], c14, c0, 0"
+        asm volatile ("mcr p15, 0, %[word], c14, c0, 0"
             :
             : [word] "{r0}" (word)
         );
@@ -124,11 +130,11 @@ pub fn setCntfrq(word: u32) void {
 pub fn cntfrq() u32 {
     var word: usize = undefined;
     if (build_options.subarch >= 8) {
-        word = asm volatile("mrs %[word], cntfrq_el0"
+        word = asm volatile ("mrs %[word], cntfrq_el0"
             : [word] "=r" (-> usize)
         );
     } else {
-        word = asm("mrc p15, 0, %[word], c14, c0, 0"
+        word = asm ("mrc p15, 0, %[word], c14, c0, 0"
             : [word] "=r" (-> usize)
         );
     }
@@ -138,11 +144,11 @@ pub fn cntfrq() u32 {
 pub fn cntpct32() u32 {
     var word: usize = undefined;
     if (build_options.subarch >= 8) {
-        word = asm volatile("mrs %[word], cntpct_el0"
+        word = asm volatile ("mrs %[word], cntpct_el0"
             : [word] "=r" (-> usize)
         );
     } else {
-        word = asm("mrrc p15, 0, %[cntpct_low], r1, c14"
+        word = asm ("mrrc p15, 0, %[cntpct_low], r1, c14"
             : [cntpct_low] "=r" (-> usize)
             :
             : "r1"
@@ -156,17 +162,16 @@ pub fn delay(count: usize) void {
     var i: usize = 0;
     while (i < count) : (i += 1) {
         if (build_options.subarch >= 8) {
-            asm volatile("mov x0, x0");
+            asm volatile ("mov x0, x0");
         } else {
-            asm volatile("mov r0, r0");
+            asm volatile ("mov r0, r0");
         }
     }
 }
 
 pub fn delayMilliseconds(duration: u32) void {
     const start = milliseconds.read();
-    while (milliseconds.read() < start + duration) {
-    }
+    while (milliseconds.read() < start + duration) {}
 }
 
 pub var microseconds: Timer = undefined;
@@ -202,19 +207,18 @@ extern var __bss_end: u8;
 extern var __end_init: u8;
 
 pub fn setBssToZero() void {
-    @memset((*volatile [1]u8)(&__bss_start), 0, @ptrToInt(&__bss_end) - @ptrToInt(&__bss_start));
+    @memset(@as(*volatile [1]u8, &__bss_start), 0, @ptrToInt(&__bss_end) - @ptrToInt(&__bss_start));
 }
 
-
 comptime {
-    asm(
+    asm (
         \\.section .text.boot // .text.boot to keep this in the first portion of the binary
         \\.globl _start
         \\_start:
     );
 
     if (build_options.subarch == 7) {
-        asm(
+        asm (
             \\ mrc p15, 0, r0, c0, c0, 5
             \\ and r0,#3
             \\ cmp r0,#0
@@ -229,7 +233,7 @@ comptime {
     }
 
     if (build_options.subarch <= 7) {
-        asm(
+        asm (
             \\ cps #0x1f // enter system mode
             \\ mov sp,#0x08000000
             \\ bl kernelMain
@@ -247,7 +251,7 @@ comptime {
             \\ b exceptionEntry0x07
         );
     } else {
-        asm(
+        asm (
             \\ mrs x0,mpidr_el1
             \\ mov x1,#0xC1000000
             \\ bic x0,x0,x1

@@ -1,7 +1,7 @@
 export fn kernelMain() noreturn {
     if (build_options.subarch <= 7) {
         // set exception stacks
-        asm volatile(
+        asm volatile (
             \\ cps #0x17 // enter data abort mode
             \\ mov r0,#0x080000000
             \\ sub r0,0x10000
@@ -17,12 +17,12 @@ export fn kernelMain() noreturn {
         arm.setVectorBaseAddressRegister(if (build_options.is_qemu) 0x11000 else 0x1000);
     }
     if (!build_options.is_qemu) {
-        arm.setCntfrq(1*1000*1000);
+        arm.setCntfrq(1 * 1000 * 1000);
     }
     arm.setBssToZero();
     arm.seconds.initScale(1);
     arm.milliseconds.initScale(1000);
-    arm.microseconds.initScale(1000*1000);
+    arm.microseconds.initScale(1000 * 1000);
 
     serial.init();
     log("\n{} {} ...", name, release_tag);
@@ -101,13 +101,13 @@ const BleActivity = struct {
                     }
                     const event_type = buf[2];
                     const address_type = buf[3];
-                    const address = buf[4..4 + 6];
+                    const address = buf[4 .. 4 + 6];
                     const key = buf[2..math.min(2 + key_len_max, buf.len - 1)];
                     const data_length = buf[4 + 6];
                     if (!(4 + 6 + data_length + 1 == buf.len - 1)) {
                         continue :nextMessage;
                     }
-                    const data_with_rssi = buf[4 + 6 + 1..];
+                    const data_with_rssi = buf[4 + 6 + 1 ..];
                     const rssi: u8 = data_with_rssi[data_length];
                     const data = data_with_rssi[0..data_length];
                     var ad_len: u8 = undefined;
@@ -119,7 +119,7 @@ const BleActivity = struct {
                         const ad_type = data[1];
                         const ad_data = data[2..ad_len];
                         if (ad_type == 0xff) {
-                            if(!(ad_data.len >= 2)) {
+                            if (!(ad_data.len >= 2)) {
                                 break :nextMessage;
                             }
                             const mfr = @intCast(u16, ad_data[1]) << 8 | ad_data[0];
@@ -139,13 +139,13 @@ const BleActivity = struct {
                                 }
                             }
                             if (i == self.trackers.len and self.trackers.len < trackers_len_max) {
-                                self.trackers = self.trackers_buf[0..i + 1];
+                                self.trackers = self.trackers_buf[0 .. i + 1];
                                 self.trackers[i].key = self.trackers[i].key_buf[0..key.len];
                                 mem.copy(u8, self.trackers[i].key, key);
                                 self.trackers[i].count = 1;
                                 self.trackers[i].last_rssi = rssi;
                                 self.grid.move(i + 1, 0);
-                                bleGridSome("{:5}  {:4} {x} {} {x}", u32(1), rssi, key[0..2 + 6], self.mfrToString(mfr), data);
+                                bleGridSome("{:5}  {:4} {x} {} {x}", @as(u32, 1), rssi, key[0 .. 2 + 6], self.mfrToString(mfr), data);
                             }
                         }
                     }
@@ -242,7 +242,7 @@ const StatusActivity = struct {
         }
     }
 
-    fn update (self: *StatusActivity) void {
+    fn update(self: *StatusActivity) void {
         const now = arm.seconds.read();
         if (now >= self.prev_now + 1) {
             const temperature = queries.getTemperature();
@@ -280,7 +280,7 @@ const PixelBannerActivity = struct {
         self.y = self.top;
     }
 
-    fn update (self: *PixelBannerActivity) void {
+    fn update(self: *PixelBannerActivity) void {
         const pixels_rendered_limit = 20;
         var pixels_rendered: u32 = 0;
         while (pixels_rendered < pixels_rendered_limit and self.x < self.width) : (pixels_rendered += 1) {
@@ -307,9 +307,7 @@ const PixelBannerActivity = struct {
 };
 
 const SerialActivity = struct {
-
-    fn init(self: *SerialActivity) void {
-    }
+    fn init(self: *SerialActivity) void {}
 
     fn update(self: *SerialActivity) void {
         serial.loadOutputFifo();
@@ -453,18 +451,24 @@ fn exceptionHandler(entry_number: u32) noreturn {
         log("sp    0x{x}", arm.sp());
         log("sctlr 0x{x}", arm.sctlr());
     } else {
-        var current_el = asm("mrs %[current_el], CurrentEL"
-            : [current_el] "=r" (-> usize));
-        var sctlr_el3 = asm("mrs %[sctlr_el3], sctlr_el3"
-            : [sctlr_el3] "=r" (-> usize));
-        var esr_el3 = asm("mrs %[esr_el3], esr_el3"
-            : [esr_el3] "=r" (-> usize));
-        var elr_el3 = asm("mrs %[elr_el3], elr_el3"
-            : [elr_el3] "=r" (-> usize));
-        var spsr_el3 = asm("mrs %[spsr_el3], spsr_el3"
-            : [spsr_el3] "=r" (-> usize));
-        var far_el3 = asm("mrs %[far_el3], far_el3"
-            : [far_el3] "=r" (-> usize));
+        var current_el = asm ("mrs %[current_el], CurrentEL"
+            : [current_el] "=r" (-> usize)
+        );
+        var sctlr_el3 = asm ("mrs %[sctlr_el3], sctlr_el3"
+            : [sctlr_el3] "=r" (-> usize)
+        );
+        var esr_el3 = asm ("mrs %[esr_el3], esr_el3"
+            : [esr_el3] "=r" (-> usize)
+        );
+        var elr_el3 = asm ("mrs %[elr_el3], elr_el3"
+            : [elr_el3] "=r" (-> usize)
+        );
+        var spsr_el3 = asm ("mrs %[spsr_el3], spsr_el3"
+            : [spsr_el3] "=r" (-> usize)
+        );
+        var far_el3 = asm ("mrs %[far_el3], far_el3"
+            : [far_el3] "=r" (-> usize)
+        );
         log("\n");
         switch (esr_el3) {
             0x96000021 => {

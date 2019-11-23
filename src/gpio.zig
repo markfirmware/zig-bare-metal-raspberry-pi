@@ -1,17 +1,16 @@
-
 pub fn useAsAlt3(pin_number: u32) void {
-      setPinPull(pin_number, Pull.None);
-      setPinFunction(pin_number, GPIO_FUNCTION_ALT3);
+    setPinPull(pin_number, Pull.None);
+    setPinFunction(pin_number, GPIO_FUNCTION_ALT3);
 }
 
 pub fn useAsAlt5(pin_number: u32) void {
-      setPinPull(pin_number, Pull.None);
-      setPinFunction(pin_number, GPIO_FUNCTION_ALT5);
+    setPinPull(pin_number, Pull.None);
+    setPinFunction(pin_number, GPIO_FUNCTION_ALT5);
 }
 
 pub fn initOutputPinWithPullNone(pin_number: u32) void {
-      setPinPull(pin_number, Pull.None);
-      setPinFunction(pin_number, GPIO_FUNCTION_OUT);
+    setPinPull(pin_number, Pull.None);
+    setPinFunction(pin_number, GPIO_FUNCTION_OUT);
 }
 
 pub fn setPinOutputBool(pin_number: u32, onOrOff: bool) void {
@@ -40,7 +39,7 @@ pub fn ioArrayOf(base: u32, field_size: u32, length: u32) type {
         const Self = @This();
 
         fn write(self: Self, index: u32, value: u32) void {
-            const field_mask = (u32(1) << @intCast(u5, field_size)) - 1;
+            const field_mask = (@as(u32, 1) << @intCast(u5, field_size)) - 1;
             rangeCheck(index, length - 1);
             rangeCheck(value, field_mask);
             const fields_per_word = 32 / field_size;

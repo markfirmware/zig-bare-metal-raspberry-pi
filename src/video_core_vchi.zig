@@ -1,4 +1,3 @@
-
 const services_len_max = 2;
 pub const Vchi = struct {
     cecs_service: *Service,
@@ -29,8 +28,7 @@ pub const Vchi = struct {
         if (enable_status != 0) {
             panicf("enable vchi failed 0x{x}", enable_status);
         }
-        while (self.slot_zero.remote.initialized == 0) {
-        }
+        while (self.slot_zero.remote.initialized == 0) {}
         self.services = self.services_buf[0..0];
         self.cecn_service = self.addService("CECN", 1, 8, 0);
         self.cecs_service = self.addService("CECS", 2, 8, 0);
@@ -50,10 +48,10 @@ pub const Vchi = struct {
     }
 
     fn addService(self: *Vchi, comptime name_str: [4]u8, local_port: u32, version: u32, min_version: u32) *Service {
-         self.services = self.services_buf[0..self.services.len + 1];
-         const i = self.services.len - 1;
-         self.services[i] = Service.of(name_str, local_port, version, min_version);
-         return &self.services[i];
+        self.services = self.services_buf[0 .. self.services.len + 1];
+        const i = self.services.len - 1;
+        self.services[i] = Service.of(name_str, local_port, version, min_version);
+        return &self.services[i];
     }
 
     fn sendMessage(self: *Vchi, id: u32, local_port: u32, remote_port: u32, args: []u32) void {
@@ -65,7 +63,7 @@ pub const Vchi = struct {
             self.txU32(arg);
         }
         arm.dsbSt();
-        self.slot_zero.local.tx_pos += message_len + 8 + 7 & ~u32(7);
+        self.slot_zero.local.tx_pos += message_len + 8 + 7 & ~@as(u32, 7);
         arm.dsbSt();
         self.slot_zero.remote.rx_event_fired = 1;
         arm.dsbSt();
@@ -73,11 +71,11 @@ pub const Vchi = struct {
     }
 
     fn connect(self: *Vchi) void {
-        self.sendMessage(MESSAGE_CONNECT, 0, 0, &[_]u32{ });
+        self.sendMessage(MESSAGE_CONNECT, 0, 0, &[_]u32{});
     }
 
     fn cecSetPassive(self: *Vchi) void {
-        self.cecs_service.sendMessageData(self, &[_]u32{ 0x10, 0x01});
+        self.cecs_service.sendMessageData(self, &[_]u32{ 0x10, 0x01 });
     }
 
     fn cecButtonPressed(self: *Vchi) ?u8 {
@@ -121,7 +119,7 @@ pub const Vchi = struct {
 
     fn updateRxPos(self: *Vchi) void {
         const event = self.slot_zero.remote.peek(VchiMessage, self.rx_pos);
-        self.rx_pos += event.message_data_len + 8 + 7 & ~u32(7);
+        self.rx_pos += event.message_data_len + 8 + 7 & ~@as(u32, 7);
         if (self.rx_pos & SLOT_SIZE - 1 == 0) {
             const freed_slot_number = self.slot_zero.remote.tx_slot_queue[slotQueueIndex(self.rx_pos - 1)];
             self.slot_zero.remote.tx_slot_queue[self.slot_zero.remote.recycle_slot_queue_index & self.slot_zero.tx_slot_queue_length - 1] = freed_slot_number;
@@ -193,7 +191,7 @@ const CecNotificationEvent = struct {
 
     fn log(self: *CecNotificationEvent, text: []const u8) void {
         const route = self.cec_message_data[0];
-        log("{} cec type {x} len {} initiator {x} destination {x} command {x:2} data {x}", text, self.cec_message_type, self.cec_message_data_len,  (route & 0xf0) >> 4, route & 0x0f, self.cec_message_data[1], self.dataSlice());
+        log("{} cec type {x} len {} initiator {x} destination {x} command {x:2} data {x}", text, self.cec_message_type, self.cec_message_data_len, (route & 0xf0) >> 4, route & 0x0f, self.cec_message_data[1], self.dataSlice());
     }
 };
 
@@ -202,19 +200,27 @@ const QueueController = struct {
     first_tx_slot_number: u32,
     last_tx_slot_number: u32,
     sync_slot_number: u32,
-    rx_event_armed: u32, rx_event_fired: u32, rx_event_handle: u32,
+    rx_event_armed: u32,
+    rx_event_fired: u32,
+    rx_event_handle: u32,
     tx_pos: u32,
-    recycle_event_armed: u32, recycle_event_fired: u32, recycle_event_handle: u32,
+    recycle_event_armed: u32,
+    recycle_event_fired: u32,
+    recycle_event_handle: u32,
     recycle_slot_queue_index: u32,
-    sync_rx_event_armed: u32, sync_rx_event__fired: u32, sync_rx_event_handle: u32,
-    sync_release_event_armed: u32, sync_release_event_fired: u32, sync_release_event_handle: u32,
+    sync_rx_event_armed: u32,
+    sync_rx_event__fired: u32,
+    sync_rx_event_handle: u32,
+    sync_release_event_armed: u32,
+    sync_release_event_fired: u32,
+    sync_release_event_handle: u32,
     tx_slot_queue: [SLOT_QUEUE_LENGTH]u32,
     extra: [EXTRA_LENGTH]u32,
 
     fn txAddress(self: *QueueController, byte_index: u32) u32 {
         const slot_number = self.tx_slot_queue[slotQueueIndex(byte_index)];
         const offset = byte_index & SLOT_SIZE - 1;
-        const slots_address = @truncate(u32, @ptrToInt(self) & ~u32(SLOT_SIZE) + 1);
+        const slots_address = @truncate(u32, @ptrToInt(self) & ~@as(u32, SLOT_SIZE) + 1);
         return slots_address + slot_number * SLOT_SIZE + offset;
     }
 
@@ -224,7 +230,7 @@ const QueueController = struct {
 };
 
 fn slotQueueIndex(byte_index: u32) u32 {
-    return (byte_index & ~u32(SLOT_SIZE) + 1) >> SLOT_SIZE_WIDTH;
+    return (byte_index & ~@as(u32, SLOT_SIZE) + 1) >> SLOT_SIZE_WIDTH;
 }
 
 const SlotZero = struct {
@@ -295,7 +301,7 @@ const Service = struct {
 
     fn open(self: *Service, vchi: *Vchi) void {
         const client_id = 0;
-        vchi.sendMessage(MESSAGE_OPEN, self.local_port, u32(0), &[_]u32{ self.name, client_id, self.version, self.min_version });
+        vchi.sendMessage(MESSAGE_OPEN, self.local_port, @as(u32, 0), &[_]u32{ self.name, client_id, self.version, self.min_version });
     }
 
     fn sendMessageData(self: *Service, vchi: *Vchi, data: []u32) void {
@@ -304,10 +310,10 @@ const Service = struct {
 };
 
 fn makeName(comptime s: [4]u8) u32 {
-    return u32(s[0]) << 24 | u32(s[1]) << 16 | u32(s[2]) << 8 | u32(s[3]);
+    return @as(u32, s[0]) << 24 | @as(u32, s[1]) << 16 | @as(u32, s[2]) << 8 | @as(u32, s[3]);
 }
 
-var slots: [SLOT_SIZE * TOTAL_SLOTS]u8 align(SLOT_SIZE)= undefined;
+var slots: [SLOT_SIZE * TOTAL_SLOTS]u8 align(SLOT_SIZE) = undefined;
 
 const DOORBELL_REGISTERS = 0xB840;
 const DOORBELL2 = 0x8;
@@ -336,4 +342,4 @@ const mailboxes = @import("video_core_mailboxes.zig").mailboxes;
 const mem = @import("std").mem;
 const panicf = arm.panicf;
 
-use @import("video_core_properties.zig");
+usingnamespace @import("video_core_properties.zig");
