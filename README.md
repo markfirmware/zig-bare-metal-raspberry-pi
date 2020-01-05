@@ -1,4 +1,4 @@
-instruction is at https://github.com/markfirmware/zig-bare-metal-raspberry-pi/blob/aligment-exception/asm.armv8#L1684
+instruction is at https://github.com/markfirmware/zig-bare-metal-raspberry-pi/blob/aligment-exception/asm.armv8#L1746
 
 serial output follows
 

@@ -19,7 +19,7 @@ pub fn build(b: *Builder) void {
     exe.setTarget(arch, os, environ);
     exe.setLinkerScriptPath("src/linker.ld");
 
-    const run_objcopy = b.addSystemCommand([_][]const u8{
+    const run_objcopy = b.addSystemCommand(&[_][]const u8{
         "llvm-objcopy", exe.getOutputPath(),
         "-O", "binary",
         kernel_name,

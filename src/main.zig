@@ -1,19 +1,19 @@
 export fn kernelMain() void {
-    arm.setCntfrq(1*1000*1000);
+    arm.setCntfrq(1 * 1000 * 1000);
     arm.setBssToZero();
 
     serial.init();
-    var sctlr_el3 = asm("mrs %[sctlr_el3], sctlr_el3"
+    var sctlr_el3 = asm ("mrs %[sctlr_el3], sctlr_el3"
         : [sctlr_el3] "=r" (-> usize)
     );
-    log("sctlr_el3 {x}", sctlr_el3);
-    sctlr_el3 = sctlr_el3 & ~u64(2) | 0x40;
-    log("sctlr_el3 {x}", sctlr_el3);
-    asm volatile("msr sctlr_el3, %[sctlr_el3]"
+    log("sctlr_el3 {x}", .{sctlr_el3});
+    sctlr_el3 = sctlr_el3 & ~@as(u64, 2) | 0x40;
+    log("sctlr_el3 {x}", .{sctlr_el3});
+    asm volatile ("msr sctlr_el3, %[sctlr_el3]"
         :
         : [sctlr_el3] "{x0}" (sctlr_el3)
     );
-    log("sctlr_el3 {x}", sctlr_el3);
+    log("sctlr_el3 {x}", .{sctlr_el3});
 
     pollData();
 }
@@ -95,41 +95,47 @@ export fn exceptionEntry0x0F() noreturn {
 }
 
 fn exceptionHandler(entry_number: u32) noreturn {
-    var current_el = asm("mrs %[current_el], CurrentEL"
-        : [current_el] "=r" (-> usize));
-    var sctlr_el3 = asm("mrs %[sctlr_el3], sctlr_el3"
-        : [sctlr_el3] "=r" (-> usize));
-    var esr_el3 = asm("mrs %[esr_el3], esr_el3"
-        : [esr_el3] "=r" (-> usize));
-    var elr_el3 = asm("mrs %[elr_el3], elr_el3"
-        : [elr_el3] "=r" (-> usize));
-    var spsr_el3 = asm("mrs %[spsr_el3], spsr_el3"
-        : [spsr_el3] "=r" (-> usize));
-    var far_el3 = asm("mrs %[far_el3], far_el3"
-        : [far_el3] "=r" (-> usize));
-    log("\n");
+    var current_el = asm ("mrs %[current_el], CurrentEL"
+        : [current_el] "=r" (-> usize)
+    );
+    var sctlr_el3 = asm ("mrs %[sctlr_el3], sctlr_el3"
+        : [sctlr_el3] "=r" (-> usize)
+    );
+    var esr_el3 = asm ("mrs %[esr_el3], esr_el3"
+        : [esr_el3] "=r" (-> usize)
+    );
+    var elr_el3 = asm ("mrs %[elr_el3], elr_el3"
+        : [elr_el3] "=r" (-> usize)
+    );
+    var spsr_el3 = asm ("mrs %[spsr_el3], spsr_el3"
+        : [spsr_el3] "=r" (-> usize)
+    );
+    var far_el3 = asm ("mrs %[far_el3], far_el3"
+        : [far_el3] "=r" (-> usize)
+    );
+    log("\n", .{});
     switch (esr_el3) {
         0x96000021 => {
-            log("alignment fault data abort exception level {} (no change) 32 bit instruction at 0x{x} reading from 0x{x}", current_el >> 2 & 0x3, elr_el3, far_el3);
+            log("alignment fault data abort exception level {} (no change) 32 bit instruction at 0x{x} reading from 0x{x}", .{ current_el >> 2 & 0x3, elr_el3, far_el3 });
         },
         0x96000050 => {
-            log("synchronous external data abort exception level {} (no change) 32 bit instruction at 0x{x} writing to 0x{x}", current_el >> 2 & 0x3, elr_el3, far_el3);
+            log("synchronous external data abort exception level {} (no change) 32 bit instruction at 0x{x} writing to 0x{x}", .{ current_el >> 2 & 0x3, elr_el3, far_el3 });
         },
         else => {
-            log("arm exception taken");
+            log("arm exception taken", .{});
         },
     }
-    log("CurrentEL {x} exception level {}", current_el, current_el >> 2 & 0x3);
-    log("esr_el3 {x} class 0x{x}", esr_el3, esr_el3 >> 26 & 0x3f);
-    log("spsr_el3 {x}", spsr_el3);
-    log("elr_el3 {x}", elr_el3);
-    log("far_el3 {x}", far_el3);
-    log("sctlr_el3 {x}", sctlr_el3);
-    arm.hang("core 0 is now idle in arm exception handler (other cores were already idle from start up)");
+    log("CurrentEL {x} exception level {}", .{ current_el, current_el >> 2 & 0x3 });
+    log("esr_el3 {x} class 0x{x}", .{ esr_el3, esr_el3 >> 26 & 0x3f });
+    log("spsr_el3 {x}", .{spsr_el3});
+    log("elr_el3 {x}", .{elr_el3});
+    log("far_el3 {x}", .{far_el3});
+    log("sctlr_el3 {x}", .{sctlr_el3});
+    arm.hang("core 0 is now idle in arm exception handler (other cores were already idle from start up)", .{});
 }
 
 pub fn panic(message: []const u8, trace: ?*builtin.StackTrace) noreturn {
-    panicf("main.zig pub fn panic(): {}", message);
+    panicf("main.zig pub fn panic(): {}", .{message});
 }
 
 const arm = @import("arm_assembly_code.zig");

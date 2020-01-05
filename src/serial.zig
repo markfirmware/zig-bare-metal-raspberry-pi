@@ -60,8 +60,7 @@ pub fn writeByteBlocking(byte: u8) void {
 }
 
 pub fn writeByteBlockingActual(byte: u8) void {
-    while (!isWriteByteReady()) {
-    }
+    while (!isWriteByteReady()) {}
     aux_registers.AUX_MU_IO_REG = @intCast(u32, byte);
 }
 
@@ -75,8 +74,7 @@ pub fn isReadByteReady() bool {
 
 pub fn readByte() u8 {
     // Wait for UART to have recieved something.
-    while (!isReadByteReady()) {
-    }
+    while (!isReadByteReady()) {}
     return @truncate(u8, aux_registers.AUX_MU_IO_REG);
 }
 
@@ -114,11 +112,11 @@ pub fn init() void {
 
 const NoError = error{};
 
-pub fn literal(comptime format: []const u8, args: ...) void {
+pub fn literal(comptime format: []const u8, args: var) void {
     fmt.format({}, NoError, logBytes, format, args) catch |e| switch (e) {};
 }
 
-pub fn log(comptime format: []const u8, args: ...) void {
+pub fn log(comptime format: []const u8, args: var) void {
     literal(format ++ "\n", args);
 }
 

@@ -1,34 +1,33 @@
-
 pub const PERIPHERAL_BASE = 0x3F000000;
 
 var already_panicking: bool = false;
-pub fn panicf(comptime fmt: []const u8, args: ...) noreturn {
+pub fn panicf(comptime fmt: []const u8, args: var) noreturn {
     @setCold(true);
     if (already_panicking) {
-        hang("\npanicked during kernel panic");
+        hang("\npanicked during kernel panic", .{});
     }
     already_panicking = true;
 
     log("\npanic: " ++ fmt, args);
-    hang("panic completed");
+    hang("panic completed", .{});
 }
 
 pub fn io(comptime StructType: type, offset: u32) *volatile StructType {
     return @intToPtr(*volatile StructType, PERIPHERAL_BASE + offset);
 }
 
-pub fn hang(comptime format: []const u8, args: ...) noreturn {
+pub fn hang(comptime format: []const u8, args: var) noreturn {
     log(format, args);
     while (!serial.isOutputQueueEmpty()) {
         serial.loadOutputFifo();
     }
     while (true) {
-        asm volatile("wfe");
+        asm volatile ("wfe");
     }
 }
 
 pub fn setCntfrq(word: u32) void {
-    asm volatile("msr cntfrq_el0, %[word]"
+    asm volatile ("msr cntfrq_el0, %[word]"
         :
         : [word] "{x0}" (word)
     );
@@ -38,7 +37,7 @@ pub fn setCntfrq(word: u32) void {
 pub fn delay(count: usize) void {
     var i: usize = 0;
     while (i < count) : (i += 1) {
-        asm volatile("mov x0, x0");
+        asm volatile ("mov x0, x0");
     }
 }
 
@@ -50,12 +49,11 @@ extern var __bss_end: u8;
 extern var __end_init: u8;
 
 pub fn setBssToZero() void {
-    @memset((*volatile [1]u8)(&__bss_start), 0, @ptrToInt(&__bss_end) - @ptrToInt(&__bss_start));
+    @memset(@ptrCast(*volatile [1]u8, &__bss_start), 0, @ptrToInt(&__bss_end) - @ptrToInt(&__bss_start));
 }
 
-
 comptime {
-    asm(
+    asm (
         \\.section .text.boot // .text.boot to keep this in the first portion of the binary
         \\.globl _start
         \\_start:
