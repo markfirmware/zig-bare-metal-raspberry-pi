@@ -1,4 +1,4 @@
-testing __aeabi_uidivmod
+testing __udivmodsi4
 
     export fn main() void {
         var x: u32 = 1;
@@ -6,7 +6,8 @@ testing __aeabi_uidivmod
         var z: u32 = x % y;
     }
 
-    zig version 0.5.0+f8408613
+    zig version 0.5.0+508a8980b
+
     LLVM (http://llvm.org/):
       LLVM version 7.0.1
        11264:	04 20 82 e2 	add	r2, r2, #4
