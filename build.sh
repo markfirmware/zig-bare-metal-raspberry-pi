@@ -9,5 +9,6 @@ echo zig version $(zig version)
 zig build-exe -target armv7-freestanding-eabihf --linker-script linker.ld main.zig
 llvm-objdump --version | head -2
 llvm-objdump -x --source main > main.disasm
-grep -C4 unknown main.disasm
-hexdump -C main | egrep ' 02 0b (dd|4b) ed '
+#egrep -C4 '(^[^ ;]|unknown)' main.disasm
+grep 'unknown' main.disasm
+hexdump -C main | egrep ' 0. 0b (d.|4b) ed '

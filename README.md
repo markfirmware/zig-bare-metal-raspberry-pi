@@ -1,23 +1,26 @@
-testing __aeabi_uidivmod
-
+    
     export fn main() void {
-        var x: u32 = 1;
-        var y: u32 = 2;
-        var z: u32 = x % y;
+        const err = std.fmt.bufPrint(&buf, "", .{});
     }
-
-    zig version 0.5.0+f8408613
+    
+    var buf: [100]u8 = undefined;
+    const std = @import("std");
+    
+    zig version 0.5.0+72ec44567
     LLVM (http://llvm.org/):
       LLVM version 7.0.1
-       11264:	04 20 82 e2 	add	r2, r2, #4
-       11268:	e2 ff ff eb 	bl	#-120 <__udivmodsi4>
-       1126c:	08 00 8d e5 	str	r0, [sp, #8]
-    ; return result;
-       11270:	02 0b dd ed  <unknown>
-       11274:	02 0b 4b ed  <unknown>
-       11278:	08 00 1b e5 	ldr	r0, [r11, #-8]
-       1127c:	04 10 1b e5 	ldr	r1, [r11, #-4]
-       11280:	0b d0 a0 e1 	mov	sp, r11
-       11284:	00 88 bd e8 	pop	{r11, pc}
-
-    00001270  02 0b dd ed 02 0b 4b ed  08 00 1b e5 04 10 1b e5  |......K.........|
+       110a4:	00 0b d2 ed  <unknown>
+       110a8:	02 0b 4b ed  <unknown>
+       111d4:	00 0b d1 ed  <unknown>
+       111d8:	08 0b cd ed  <unknown>
+       11230:	00 0b d0 ed  <unknown>
+       11234:	02 0b 4b ed  <unknown>
+       11270:	00 0b d0 ed  <unknown>
+       11274:	06 0b 4b ed  <unknown>
+       1127c:	00 0b d1 ed  <unknown>
+       11280:	08 0b 4b ed  <unknown>
+    000010a0  48 d0 4d e2 00 0b d2 ed  02 0b 4b ed 08 30 4b e2  |H.M.......K..0K.|
+    000011d0  b8 32 cd e1 00 0b d1 ed  08 0b cd ed 0b d0 a0 e1  |.2..............|
+    00001230  00 0b d0 ed 02 0b 4b ed  24 10 1b e5 04 10 91 e5  |......K.$.......|
+    00001270  00 0b d0 ed 06 0b 4b ed  28 10 9d e5 00 0b d1 ed  |......K.(.......|
+    00001280  08 0b 4b ed 47 00 00 eb  24 00 1b e5 28 10 9d e5  |..K.G...$...(...|

@@ -1,5 +1,6 @@
 export fn main() void {
-    var x: u32 = 1;
-    var y: u32 = 2;
-    var z: u32 = x % y;
+    const err = std.fmt.bufPrint(&buf, "", .{});
 }
+
+var buf: [100]u8 = undefined;
+const std = @import("std");
